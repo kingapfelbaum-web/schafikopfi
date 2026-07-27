@@ -117,8 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
               try {
                 final uri = Uri.parse(info.url);
-                await launchUrl(uri,
-                    mode: LaunchMode.externalApplication);
+                await UpdateService.downloadAndInstall(info);
                 await Future.delayed(const Duration(milliseconds: 500));
                 SystemNavigator.pop(animated: false);
               } catch (e) {

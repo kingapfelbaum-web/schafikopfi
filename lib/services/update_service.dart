@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 class UpdateInfo {
   final String version;
@@ -116,5 +120,26 @@ class UpdateService {
       if (ni < ai) return false;
     }
     return false;
+  }
+
+  /// Lädt die APK herunter und öffnet den Android-Installationsdialog.
+  /// Wirft eine Exception, wenn kein APK-Asset im Release vorhanden ist
+  /// (dann sollte stattdessen [releaseUrl] im Browser geöffnet werden).
+  static Future<void> downloadAndInstall(UpdateInfo info) async {
+    if (info.url == null) {
+      throw Exception('Kein APK-Anhang im Release gefunden.');
+    }
+    final response = await http.get(Uri.parse(info.url));
+    if (response.statusCode != 200) {
+      throw Exception('Download fehlgeschlagen (${response.statusCode}).');
+    }
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/expense_tracker_update.apk');
+    await file.writeAsBytes(response.bodyBytes, flush: true);
+
+    final result = await OpenFilex.open(file.path);
+    if (result.type != ResultType.done) {
+      throw Exception(result.message);
+    }
   }
 }
