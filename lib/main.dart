@@ -8,7 +8,6 @@ import 'screens/statistik_screen.dart';
 import 'screens/einstellungen_screen.dart';
 import 'screens/neues_spiel_screen.dart';
 import 'services/update_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -116,10 +115,8 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () async {
               Navigator.pop(context);
               try {
-                final uri = Uri.parse(info.url);
                 await UpdateService.downloadAndInstall(info);
-                await Future.delayed(const Duration(milliseconds: 500));
-                SystemNavigator.pop(animated: false);
+                if (mounted) Navigator.of(context).pop();
               } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(

@@ -125,21 +125,42 @@ class UpdateService {
   /// Lädt die APK herunter und öffnet den Android-Installationsdialog.
   /// Wirft eine Exception, wenn kein APK-Asset im Release vorhanden ist
   /// (dann sollte stattdessen [releaseUrl] im Browser geöffnet werden).
-  static Future<void> downloadAndInstall(UpdateInfo info) async {
-    if (info.url == null) {
-      throw Exception('Kein APK-Anhang im Release gefunden.');
-    }
-    final response = await http.get(Uri.parse(info.url));
-    if (response.statusCode != 200) {
-      throw Exception('Download fehlgeschlagen (${response.statusCode}).');
-    }
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/expense_tracker_update.apk');
-    await file.writeAsBytes(response.bodyBytes, flush: true);
+  static Future<void> downloadAndInstall(
+      UpdateInfo info, {
+        void Function(double? progress)? onProgress,
+      }) async {
 
-    final result = await OpenFilex.open(file.path);
-    if (result.type != ResultType.done) {
-      throw Exception(result.message);
+    final client = http.Client();
+    try {
+      final request = http.Request('GET', Uri.parse(info.url));
+      final streamedResponse = await client.send(request);
+
+      if (streamedResponse.statusCode != 200) {
+        throw Exception('Download fehlgeschlagen (${streamedResponse.statusCode}).');
+      }
+
+      final totalBytes = streamedResponse.contentLength;
+      var receivedBytes = 0;
+      final bytes = <int>[];
+
+      await for (final chunk in streamedResponse.stream) {
+        bytes.addAll(chunk);
+        receivedBytes += chunk.length;
+        if (onProgress != null) {
+          onProgress(totalBytes != null && totalBytes > 0 ? receivedBytes / totalBytes : null);
+        }
+      }
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/expense_tracker_update.apk');
+      await file.writeAsBytes(bytes, flush: true);
+
+      final result = await OpenFilex.open(file.path);
+      if (result.type != ResultType.done) {
+        throw Exception(result.message);
+      }
+    } finally {
+      client.close();
     }
   }
 }
