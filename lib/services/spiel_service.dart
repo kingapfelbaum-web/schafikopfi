@@ -24,6 +24,23 @@ class SpielerImportKonflikt {
   });
 }
 
+/// Ein einzelner Datenpunkt für einen Zeitverlauf: nach einer bestimmten
+/// Runde der kumulierte Punktestand (€) und die bis dahin erreichte
+/// (rollierende) Gewinnquote.
+class VerlaufsPunkt {
+  final DateTime zeitpunkt;
+  final int rundenNummer;
+  final double kumulierterSaldo;
+  final double kumulierteGewinnquote;
+
+  VerlaufsPunkt({
+    required this.zeitpunkt,
+    required this.rundenNummer,
+    required this.kumulierterSaldo,
+    required this.kumulierteGewinnquote,
+  });
+}
+
 class SpielService extends ChangeNotifier {
   final _uuid = const Uuid();
   static const _storageKey = 'schafkopf_daten_v1';
@@ -502,6 +519,16 @@ class SpielService extends ChangeNotifier {
     return entfernt;
   }
 
+  void spielerAufPauseSetzen(Tisch tisch, Spieler spieler) {
+    tisch.spielerAufPause(spieler);
+    notifyListeners();
+  }
+
+  void spielerReaktivieren(Tisch tisch, Spieler spieler) {
+    tisch.spielerReaktivieren(spieler);
+    notifyListeners();
+  }
+
   void spielerReihenfolgeAendern(Tisch tisch, int oldIndex, int newIndex) {
     tisch.spielerVerschieben(oldIndex, newIndex);
     notifyListeners();
@@ -544,7 +571,6 @@ class SpielService extends ChangeNotifier {
   }
 
   void tischLoeschen(Tisch tisch) {
-    if (tisch.status != TischStatus.beendet) return;
     _tische.remove(tisch);
     notifyListeners();
   }
@@ -656,6 +682,111 @@ class SpielService extends ChangeNotifier {
       tische: tischeDesSpielers,
     );
   }
+
+  /// Zeitverlauf (Saldo + Gewinnquote) für einen einzelnen Spieler,
+  /// über alle Tische hinweg, chronologisch nach Rundenzeitpunkt sortiert.
+  List<VerlaufsPunkt> verlaufFuerSpieler(Spieler spieler) {
+    final eintraege = <MapEntry<DateTime, double>>[];
+
+    for (final tisch in _tische) {
+      if (!tisch.spieler.contains(spieler)) continue;
+      for (final runde in tisch.runden) {
+        final punkte = runde.punkteProSpieler[spieler.id];
+        if (punkte == null) continue; // ausgesetzt
+        eintraege.add(MapEntry(runde.zeitpunkt, punkte));
+      }
+    }
+
+    eintraege.sort((a, b) => a.key.compareTo(b.key));
+
+    final verlauf = <VerlaufsPunkt>[];
+    double saldo = 0;
+    int anzahl = 0;
+    int gewonnen = 0;
+
+    for (final e in eintraege) {
+      saldo += e.value;
+      anzahl += 1;
+      if (e.value > 0) gewonnen += 1;
+      verlauf.add(VerlaufsPunkt(
+        zeitpunkt: e.key,
+        rundenNummer: anzahl,
+        kumulierterSaldo: saldo,
+        kumulierteGewinnquote: gewonnen / anzahl,
+      ));
+    }
+
+    return verlauf;
+  }
+
+  /// Zeitverlauf (Gesamt-Tischsaldo aller Spieler zusammen ist nicht
+  /// sinnvoll, da er immer 0 ergibt – stattdessen: Anzahl Runden und
+  /// Gewinnquote der jeweiligen Spielerpartei über den Tischverlauf).
+  List<VerlaufsPunkt> verlaufFuerTisch(Tisch tisch) {
+    final rundenSortiert = List.of(tisch.runden)
+      ..sort((a, b) => a.zeitpunkt.compareTo(b.zeitpunkt));
+
+    final verlauf = <VerlaufsPunkt>[];
+    double saldoBetrag = 0; // Summe der an diesem Tisch bewegten Beträge (Umsatz)
+    int anzahl = 0;
+    int gewonnen = 0;
+
+    for (final r in rundenSortiert) {
+      anzahl += 1;
+      saldoBetrag += r.spielwert.abs();
+      if (!r.unentschieden && r.gewonnen) gewonnen += 1;
+      verlauf.add(VerlaufsPunkt(
+        zeitpunkt: r.zeitpunkt,
+        rundenNummer: anzahl,
+        kumulierterSaldo: saldoBetrag,
+        kumulierteGewinnquote: gewonnen / anzahl,
+      ));
+    }
+
+    return verlauf;
+  }
+
+  /// Mehrlinien-Verlauf für einen Tisch: für jede Runde der kumulierte
+  /// Saldo JEDES am Tisch sitzenden Spielers (chronologisch sortiert).
+  List<TischVerlaufsPunkt> mehrlinienVerlaufFuerTisch(Tisch tisch) {
+    final rundenSortiert = List.of(tisch.runden)
+      ..sort((a, b) => a.zeitpunkt.compareTo(b.zeitpunkt));
+
+    final laufenderSaldo = <String, double>{
+      for (final s in tisch.spieler) s.id: 0,
+    };
+
+    final verlauf = <TischVerlaufsPunkt>[];
+    var nummer = 0;
+    for (final runde in rundenSortiert) {
+      nummer += 1;
+      runde.punkteProSpieler.forEach((spielerId, punkte) {
+        laufenderSaldo[spielerId] = (laufenderSaldo[spielerId] ?? 0) + punkte;
+      });
+      verlauf.add(TischVerlaufsPunkt(
+        runde: runde,
+        rundenNummer: nummer,
+        saldoProSpieler: Map.of(laufenderSaldo),
+      ));
+    }
+    return verlauf;
+  }
+}
+
+/// Ein einzelner Datenpunkt für den Mehrlinien-Verlauf eines Tisches:
+/// der kumulierte Saldo (€) für jeden Spieler nach einer bestimmten Runde.
+class TischVerlaufsPunkt {
+  final Runde runde;
+  final int rundenNummer;
+
+  /// Kumulierter Saldo je Spieler-ID nach dieser Runde.
+  final Map<String, double> saldoProSpieler;
+
+  TischVerlaufsPunkt({
+    required this.runde,
+    required this.rundenNummer,
+    required this.saldoProSpieler,
+  });
 }
 
 class SpielerStatistik {

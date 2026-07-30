@@ -6,6 +6,7 @@ import '../models/tisch.dart';
 import '../models/runde.dart';
 import '../services/spiel_service.dart';
 import 'runde_erfassen_screen.dart';
+import '../widgets/tisch_verlaufs_chart.dart';
 
 class TischDetailScreen extends StatefulWidget {
   final Tisch tisch;
@@ -17,6 +18,7 @@ class TischDetailScreen extends StatefulWidget {
 
 class _TischDetailScreenState extends State<TischDetailScreen> {
   bool _spielerEingeklappt = false;
+  int? _zeitraum; // null = alle Runden, sonst letzte N Runden
 
   Tisch get tisch => widget.tisch;
 
@@ -45,165 +47,226 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text('Spieler (Reihenfolge)',
-                      style: Theme.of(context).textTheme.labelLarge),
-                ),
-                IconButton(
-                  icon: Icon(_spielerEingeklappt
-                      ? Icons.expand_more
-                      : Icons.expand_less),
-                  tooltip: _spielerEingeklappt ? 'Ausklappen' : 'Einklappen',
-                  onPressed: () =>
-                      setState(() => _spielerEingeklappt = !_spielerEingeklappt),
-                ),
-              ],
-            ),
-          ),
-          if (!_spielerEingeklappt) ...[
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: tisch.spieler.length,
-              onReorder: istAktiv
-                  ? (oldIndex, newIndex) => service.spielerReihenfolgeAendern(
-                  tisch, oldIndex, newIndex)
-                  : (_, __) {},
-              itemBuilder: (context, index) {
-                final s = tisch.spieler[index];
-                final punkte = punktestand[s.id] ?? 0;
-                final kannEntferntWerden = istAktiv &&
-                    !tisch.spielerHatRunden(s) &&
-                    tisch.spieler.length > 4;
-                return ListTile(
-                  key: ValueKey(s.id),
-                  leading: CircleAvatar(child: Text('${index + 1}')),
-                  title: Text(s.name),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${punkte.toStringAsFixed(2)} €',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: punkte > 0
-                              ? Colors.green
-                              : punkte < 0
-                              ? Colors.red
-                              : null,
-                        ),
-                      ),
-                      if (kannEntferntWerden)
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          color: Colors.grey.shade600,
-                          onPressed: () => _spielerEntfernenBestaetigen(
-                              context, service, s),
-                        ),
-                    ],
+      body: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Expanded(
+                    child: Text('Spieler (Reihenfolge)',
+                        style: Theme.of(context).textTheme.labelLarge),
                   ),
-                );
-              },
-            ),
-            if (istAktiv)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Wrap(
-                  children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.person_add),
-                      label: const Text('Spieler hinzufügen'),
-                      onPressed: () =>
-                          _spielerHinzufuegenDialog(context, service),
-                    ),
-                    TextButton.icon(
-                      icon: const Icon(Icons.tune),
-                      label: const Text('Spiele bearbeiten'),
-                      onPressed: () =>
-                          _spieleBearbeitenDialog(context, service),
-                    ),
-                  ],
-                ),
+                  IconButton(
+                    icon: Icon(_spielerEingeklappt
+                        ? Icons.expand_more
+                        : Icons.expand_less),
+                    tooltip: _spielerEingeklappt ? 'Ausklappen' : 'Einklappen',
+                    onPressed: () =>
+                        setState(() => _spielerEingeklappt = !_spielerEingeklappt),
+                  ),
+                ],
               ),
-          ],
-          const Divider(height: 32),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Runden (${tisch.runden.length})',
-                  style: Theme.of(context).textTheme.labelLarge),
             ),
-          ),
-          Expanded(
-            child: tisch.runden.isEmpty
-                ? const Center(child: Text('Noch keine Runde erfasst'))
-                : ListView.builder(
-                    itemCount: tisch.runden.length,
-                    itemBuilder: (context, index) {
-                      final runde = tisch.runden[
-                          tisch.runden.length - 1 - index]; // neueste zuerst
-                      final spielerpartei = runde.spielerParteiIds
-                          .map((id) =>
-                              tisch.spieler.firstWhere((s) => s.id == id).name)
-                          .join(' & ');
-                      final details = [
-                        if (runde.anzahlLaufende > 0)
-                          '${runde.anzahlLaufende} Laufende',
-                        if (runde.schneider) 'Schneider',
-                        if (runde.schwarz) 'Schwarz',
-                        if (runde.multiplikator > 1)
-                          '${runde.multiplikator}x',
-                      ].join(' · ');
-                      final titel = runde.unentschieden
-                          ? runde.spielartName
-                          : '${runde.spielartName}${spielerpartei.isEmpty ? '' : ' – $spielerpartei'}';
-                      return ListTile(
-                        leading: Icon(
-                          runde.unentschieden
-                              ? Icons.remove_circle_outline
-                              : runde.gewonnen
-                                  ? Icons.check_circle
-                                  : Icons.cancel,
-                          color: runde.unentschieden
-                              ? Colors.grey
-                              : runde.gewonnen
-                                  ? Colors.green
-                                  : Colors.red,
-                        ),
-                        title: Text(titel),
-                        subtitle: Text(details.isEmpty
-                            ? '${runde.spielwert.toStringAsFixed(2)} €'
-                            : '$details · ${runde.spielwert.toStringAsFixed(2)} €'),
-                        trailing: Text(
-                          runde.unentschieden
-                              ? 'unentschieden'
-                              : runde.gewonnen
-                                  ? 'gewonnen'
-                                  : 'verloren',
+            if (!_spielerEingeklappt) ...[
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: tisch.spieler.length,
+                onReorder: istAktiv
+                    ? (oldIndex, newIndex) => service.spielerReihenfolgeAendern(
+                    tisch, oldIndex, newIndex)
+                    : (_, __) {},
+                itemBuilder: (context, index) {
+                  final s = tisch.spieler[index];
+                  final punkte = punktestand[s.id] ?? 0;
+                  final istInaktiv = !tisch.spielerIstAktiv(s);
+                  final kannEntferntWerden = istAktiv &&
+                      !tisch.spielerHatRunden(s) &&
+                      tisch.spieler.length > 4;
+                  final kannPausiertWerden = istAktiv && tisch.spieler.length > 4;
+                  return ListTile(
+                    key: ValueKey(s.id),
+                    leading: CircleAvatar(child: Text('${index + 1}')),
+                    title: Text(
+                      s.name,
+                      style: istInaktiv
+                          ? TextStyle(color: Colors.grey.shade500)
+                          : null,
+                    ),
+                    subtitle: istInaktiv ? const Text('Pausiert') : null,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${punkte.toStringAsFixed(2)} €',
                           style: TextStyle(
-                            color: runde.unentschieden
+                            fontWeight: FontWeight.bold,
+                            color: istInaktiv
                                 ? Colors.grey
-                                : runde.gewonnen
-                                    ? Colors.green
-                                    : Colors.red,
+                                : punkte > 0
+                                ? Colors.green
+                                : punkte < 0
+                                ? Colors.red
+                                : null,
                           ),
                         ),
-                        onLongPress: istAktiv
-                            ? () => _rundeOptionenDialog(context, service, runde)
-                            : null,
-                      );
-                    },
+                        if (kannPausiertWerden)
+                          IconButton(
+                            icon: Icon(
+                                istInaktiv ? Icons.play_arrow : Icons.pause,
+                                size: 20),
+                            color: Colors.grey.shade600,
+                            tooltip: istInaktiv ? 'Reaktivieren' : 'Pausieren',
+                            onPressed: () {
+                              if (istInaktiv) {
+                                service.spielerReaktivieren(tisch, s);
+                              } else {
+                                service.spielerAufPauseSetzen(tisch, s);
+                              }
+                            },
+                          ),
+                        if (kannEntferntWerden)
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            color: Colors.grey.shade600,
+                            onPressed: () => _spielerEntfernenBestaetigen(context, service, s),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              if (istAktiv)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Wrap(
+                    children: [
+                      TextButton.icon(
+                        icon: const Icon(Icons.person_add),
+                        label: const Text('Spieler hinzufügen'),
+                        onPressed: () =>
+                            _spielerHinzufuegenDialog(context, service),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.tune),
+                        label: const Text('Spiele bearbeiten'),
+                        onPressed: () =>
+                            _spieleBearbeitenDialog(context, service),
+                      ),
+                    ],
                   ),
-          ),
-          Divider(height: MediaQuery.of(context).padding.bottom),
-        ],
+                ),
+            ],
+            const Divider(height: 32),
+            if (tisch.runden.length >= 2 && tisch.beendetAm != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Verlauf am Tisch',
+                      style: Theme.of(context).textTheme.labelLarge),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Builder(builder: (context) {
+                  final vollerVerlauf = service.mehrlinienVerlaufFuerTisch(tisch);
+                  final verlauf = _zeitraum == null ||
+                      vollerVerlauf.length <= _zeitraum!
+                      ? vollerVerlauf
+                      : vollerVerlauf.sublist(vollerVerlauf.length - _zeitraum!);
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: TischVerlaufsChart(
+                        spieler: tisch.spieler,
+                        punkte: verlauf,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const Divider(height: 32),
+            ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Runden (${tisch.runden.length})',
+                    style: Theme.of(context).textTheme.labelLarge),
+              ),
+            ),
+            tisch.runden.isEmpty
+                  ? const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: Text('Noch keine Runde erfasst')),
+              )
+                  : ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: tisch.runden.length,
+                itemBuilder: (context, index) {
+                  final runde = tisch.runden[
+                  tisch.runden.length - 1 - index]; // neueste zuerst
+                  final spielerpartei = runde.spielerParteiIds
+                      .map((id) =>
+                  tisch.spieler.firstWhere((s) => s.id == id).name)
+                      .join(' & ');
+                  final details = [
+                    if (runde.anzahlLaufende > 0)
+                      '${runde.anzahlLaufende} Laufende',
+                    if (runde.schneider) 'Schneider',
+                    if (runde.schwarz) 'Schwarz',
+                    if (runde.multiplikator > 1)
+                      '${runde.multiplikator}x',
+                  ].join(' · ');
+                  final titel = runde.unentschieden
+                      ? runde.spielartName
+                      : '${runde.spielartName}${spielerpartei.isEmpty ? '' : ' – $spielerpartei'}';
+                  return ListTile(
+                    leading: Icon(
+                      runde.unentschieden
+                          ? Icons.remove_circle_outline
+                          : runde.gewonnen
+                          ? Icons.check_circle
+                          : Icons.cancel,
+                      color: runde.unentschieden
+                          ? Colors.grey
+                          : runde.gewonnen
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                    title: Text(titel),
+                    subtitle: Text(details.isEmpty
+                        ? '${runde.spielwert.toStringAsFixed(2)} € je Verlierer'
+                        : '$details · ${runde.spielwert.toStringAsFixed(2)} € je Verlierer'),
+                    trailing: Text(
+                      runde.unentschieden
+                          ? 'unentschieden'
+                          : runde.gewonnen
+                          ? 'gewonnen'
+                          : 'verloren',
+                      style: TextStyle(
+                        color: runde.unentschieden
+                            ? Colors.grey
+                            : runde.gewonnen
+                            ? Colors.green
+                            : Colors.red,
+                      ),
+                    ),
+                    onLongPress: istAktiv
+                        ? () => _rundeOptionenDialog(context, service, runde)
+                        : null,
+                  );
+                },
+              ),
+            Divider(height: MediaQuery.of(context).padding.bottom),
+          ],
+        ),
       ),
       floatingActionButton: istAktiv
           ? FloatingActionButton.extended(
@@ -292,11 +355,9 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
+          scrollable: true,
           title: const Text('Spieler hinzufügen'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
+          content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -326,10 +387,8 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
                       },
                     ))
                         .toList(),
-                  ),
-                ],
               ),
-            ),
+            ],
           ),
           actions: [
             TextButton(

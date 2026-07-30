@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
@@ -160,6 +161,7 @@ class UpdateService {
         throw Exception(result.message);
       }
     } finally {
+      SystemNavigator.pop();
       client.close();
     }
   }

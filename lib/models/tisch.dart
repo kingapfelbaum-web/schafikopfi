@@ -20,6 +20,7 @@ class Tisch {
   /// Reihenfolge ist bewusst eine Liste (nicht Set) -> Sitzordnung bleibt erhalten.
   final List<Spieler> spieler;
   final List<Runde> runden;
+  final Set<String> inaktiveSpielerIds;
 
   Tisch({
     required this.id,
@@ -28,11 +29,13 @@ class Tisch {
     Tarif? tarif,
     List<Spielart>? spielarten,
     List<Runde>? runden,
+    Set<String>? inaktiveSpielerIds,
     this.status = TischStatus.aktiv,
     this.beendetAm,
   })  : runden = runden ?? [],
         tarif = tarif ?? Tarif(),
-        spielarten = spielarten ?? standardSpielarten();
+        spielarten = spielarten ?? standardSpielarten(),
+        inaktiveSpielerIds = inaktiveSpielerIds ?? {};
 
   /// Aktueller Punktestand (in €) je Spieler-ID, summiert über alle Runden.
   Map<String, double> get punktestand {
@@ -59,6 +62,12 @@ class Tisch {
     return spieler.remove(s);
   }
 
+  bool spielerIstAktiv(Spieler s) => !inaktiveSpielerIds.contains(s.id);
+
+  void spielerAufPause(Spieler s) => inaktiveSpielerIds.add(s.id);
+
+  void spielerReaktivieren(Spieler s) => inaktiveSpielerIds.remove(s.id);
+
   void spielerVerschieben(int oldIndex, int newIndex) {
     if (newIndex > oldIndex) newIndex -= 1;
     final s = spieler.removeAt(oldIndex);
@@ -79,6 +88,7 @@ class Tisch {
         'spielerIds': spieler.map((s) => s.id).toList(),
         'spielartenIds': spielarten.map((s) => s.id).toList(),
         'runden': runden.map((r) => r.toJson()).toList(),
+        'inaktiveSpielerIds': inaktiveSpielerIds.toList(),
       };
 
   /// Löst spielerIds/spielartenIds gegen die übergebenen globalen Listen auf.
@@ -155,6 +165,7 @@ class Tisch {
       spieler: spieler,
       spielarten: spielarten,
       runden: runden,
+      inaktiveSpielerIds: Set<String>.from(json['inaktiveSpielerIds'] as List? ?? []),
     );
   }
 }

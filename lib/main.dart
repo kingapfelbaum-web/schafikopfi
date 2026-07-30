@@ -78,62 +78,22 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _updateInfo = info);
       // Dialog nur zeigen wenn nicht ignoriert
       if (!info.ignoriert) {
-        _zeigeUpdateDialog(info);
+        _showUpdateDialog(info, context);
       }
     }
   }
 
-  void _zeigeUpdateDialog(UpdateInfo info) {
+  void _showUpdateDialog(UpdateInfo info, BuildContext context) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('🎲 Update verfügbar'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Version ${info.version} ist verfügbar.'),
-            if (info.hinweis.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(info.hinweis,
-                  style: const TextStyle(
-                      color: Colors.grey, fontSize: 13)),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await UpdateService.versionsIgnorieren(info.version);
-              setState(() => _updateInfo = info);
-              Navigator.pop(context);
-            },
-            child: const Text('Ignorieren'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await UpdateService.downloadAndInstall(info);
-                if (mounted) Navigator.of(context).pop();
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(
-                          'Download-Link konnte nicht geöffnet werden: $e')),
-                );
-              }
-            },
-            icon: const Icon(Icons.system_update),
-            label: const Text('Installieren'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-            ),
-          ),
-        ],
+      builder: (dialogContext) => _UpdateDialog(
+        info: info,
+        onIgnore: () {
+          debugPrint('Update ignoriert');
+          UpdateService.versionsIgnorieren(info.version);
+          Navigator.of(dialogContext).pop();
+        },
       ),
     );
   }
@@ -145,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _index,
         children: [
           AktiveSpieleScreen(updateInfo: _updateInfo, onUpdateTap: () {
-            if (_updateInfo != null) _zeigeUpdateDialog(_updateInfo!);
+            if (_updateInfo != null) _showUpdateDialog(_updateInfo!, context);
           }),
           const StatistikScreen(),
           const EinstellungenScreen()
@@ -185,6 +145,80 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _UpdateDialog extends StatefulWidget {
+  final UpdateInfo info;
+  final VoidCallback onIgnore;
+  const _UpdateDialog({required this.info, required this.onIgnore});
+
+  @override
+  State<_UpdateDialog> createState() => _UpdateDialogState();
+}
+
+class _UpdateDialogState extends State<_UpdateDialog> {
+  bool _installing = false;
+  double? _progress;
+  String? _error;
+
+  Future<void> _install() async {
+    setState(() {
+      _installing = true;
+      _progress = null;
+      _error = null;
+    });
+    try {
+      await UpdateService.downloadAndInstall(
+        widget.info,
+        onProgress: (p) {
+          if (mounted) setState(() => _progress = p);
+        },
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      setState(() => _error = 'Installation fehlgeschlagen: $e');
+    } finally {
+      if (mounted) setState(() => _installing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_installing ? 'Update wird heruntergeladen' : 'Update verfügbar'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_installing) ...[
+            LinearProgressIndicator(value: _progress),
+            const SizedBox(height: 12),
+            Text(
+              _progress != null ? '${(_progress! * 100).toStringAsFixed(0)} %' : 'Lädt...',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ] else
+            Text('Version ${widget.info.version} steht auf GitHub bereit.'),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _installing ? null : widget.onIgnore,
+          child: const Text('Ignorieren'),
+        ),
+        FilledButton(
+          onPressed: _installing ? null : _install,
+          child: _installing
+              ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Jetzt installieren'),
+        ),
+      ],
     );
   }
 }

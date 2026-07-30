@@ -77,8 +77,11 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
   /// genommen. Ansonsten rückt jeder Sitzplatz gegenüber der letzten Runde
   /// um genau eine Position weiter (reihum, entsprechend der Sitzordnung
   /// des Tisches) – wer zuletzt ausgesetzt hat, spielt so als erstes wieder mit.
+  List<Spieler> get _verfuegbareSpieler =>
+      widget.tisch.spieler.where(widget.tisch.spielerIstAktiv).toList();
+
   Set<String> _naechsteAktiveSpieler() {
-    final spieler = widget.tisch.spieler;
+    final spieler = _verfuegbareSpieler;
     final n = spieler.length;
 
     if (widget.tisch.runden.isEmpty || n <= 4) {
@@ -152,7 +155,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final alleSpieler = widget.tisch.spieler;
+    final alleSpieler = _verfuegbareSpieler;
     final brauchtAuswahl = alleSpieler.length > 4;
     final spielarten = widget.tisch.spielarten;
 
