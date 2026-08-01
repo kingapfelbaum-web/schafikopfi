@@ -153,7 +153,7 @@ class UpdateService {
       }
 
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/expense_tracker_update.apk');
+      final file = File('${dir.path}/schafkopf_update.apk');
       await file.writeAsBytes(bytes, flush: true);
 
       final result = await OpenFilex.open(file.path);

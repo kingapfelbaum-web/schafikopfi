@@ -6,6 +6,7 @@ import '../services/spiel_service.dart';
 import '../widgets/tisch_karte.dart';
 import 'spieler_detail_screen.dart';
 import 'tisch_detail_screen.dart';
+import 'spielart_detail_screen.dart';
 
 class StatistikScreen extends StatelessWidget {
   const StatistikScreen({super.key});
@@ -229,6 +230,11 @@ class _SpielartenStatistikTab extends StatelessWidget {
             trailing: Text(
               '${(s.gewinnquote * 100).toStringAsFixed(0)}% Siegquote',
               style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => SpielartDetailScreen(spielartName: s.name),
+              ),
             ),
           ),
         );

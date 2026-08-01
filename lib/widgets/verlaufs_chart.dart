@@ -4,7 +4,7 @@ import '../services/spiel_service.dart';
 
 /// Zeigt eine Linie aus VerlaufsPunkt-Werten inkl. Y-Achsen-Beschriftung
 /// (Minimal-/Maximalwert) am linken Rand.
-class VerlaufsChart extends StatelessWidget {
+class VerlaufsChart extends StatefulWidget {
   final List<VerlaufsPunkt> punkte;
   final double Function(VerlaufsPunkt) wertSelector;
   final String Function(double) formatWert;
@@ -25,18 +25,25 @@ class VerlaufsChart extends StatelessWidget {
   });
 
   @override
+  State<VerlaufsChart> createState() => _VerlaufsChartState();
+}
+
+class _VerlaufsChartState extends State<VerlaufsChart> {
+  int? _ausgewaehlterIndex;
+
+  @override
   Widget build(BuildContext context) {
-    if (punkte.length < 2) {
+    if (widget.punkte.length < 2) {
       return const SizedBox(
         height: 160,
         child: Center(child: Text('Noch zu wenige Runden für einen Verlauf')),
       );
     }
 
-    final werte = punkte.map(wertSelector).toList();
+    final werte = widget.punkte.map(widget.wertSelector).toList();
     double minWert, maxWert;
 
-    if (symmetrischeSkala) {
+    if (widget.symmetrischeSkala) {
       double maxAbs = 0;
       for (final w in werte) {
         if (w.abs() > maxAbs) maxAbs = w.abs();
@@ -44,7 +51,7 @@ class VerlaufsChart extends StatelessWidget {
       if (maxAbs == 0) maxAbs = 1;
       minWert = -maxAbs;
       maxWert = maxAbs;
-    } else if (prozentSkala) {
+    } else if (widget.prozentSkala) {
       minWert = 0;
       maxWert = 100;
     } else {
@@ -56,41 +63,102 @@ class VerlaufsChart extends StatelessWidget {
       }
     }
 
-    return SizedBox(
-      height: 200,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Y-Achse: Maximal-/Minimalwert
-          SizedBox(
-            width: 56,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(formatWert(maxWert),
-                    style: Theme.of(context).textTheme.bodySmall),
-                Text(formatWert(minWert),
-                    style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
+    final ausgewaehlterPunkt = _ausgewaehlterIndex != null
+        ? widget.punkte[_ausgewaehlterIndex!]
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 220,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Y-Achse: Maximal-/Minimalwert
+              SizedBox(
+                width: 56,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(widget.formatWert(maxWert),
+                        style: Theme.of(context).textTheme.bodySmall),
+                    Text(widget.formatWert(minWert),
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanDown: (details) => _beiBeruehrung(details.localPosition),
+                  onPanUpdate: (details) => _beiBeruehrung(details.localPosition),
+                  onPanEnd: (_) => setState(() => _ausgewaehlterIndex = null),
+                  onTapDown: (details) => _beiBeruehrung(details.localPosition),
+                  child: MouseRegion(
+                    onHover: (event) => _beiBeruehrung(event.localPosition),
+                    onExit: (_) => setState(() => _ausgewaehlterIndex = null),
+                    child: CustomPaint(
+                      size: Size.infinite,
+                      painter: _LinienPainter(
+                        werte: werte,
+                        minWert: minWert,
+                        maxWert: maxWert,
+                        farbe: widget.linienFarbe,
+                        nullLinieZeigen: widget.nullLinieZeigen,
+                        ausgewaehlterIndex: _ausgewaehlterIndex,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: CustomPaint(
-              size: Size.infinite,
-              painter: _LinienPainter(
-                werte: werte,
-                minWert: minWert,
-                maxWert: maxWert,
-                farbe: linienFarbe,
-                nullLinieZeigen: nullLinieZeigen,
+        ),
+        const SizedBox(height: 8),
+        // Tooltip-Bereich: zeigt die Runde am ausgewählten Punkt
+        SizedBox(
+          height: 80,
+          child: ausgewaehlterPunkt == null
+              ? null
+              : Card(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Runde ${ausgewaehlterPunkt.rundenNummer}${ausgewaehlterPunkt.runde != null ? ': ${ausgewaehlterPunkt.runde!.spielartName}' : ''}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.formatWert(widget.wertSelector(ausgewaehlterPunkt)),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
+  }
+
+  void _beiBeruehrung(Offset position) {
+    final n = widget.punkte.length;
+    if (n < 2) return;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final chartBreite = box.size.width - 60;
+    if (chartBreite <= 0) return;
+    final relativeX = (position.dx - 60).clamp(0, chartBreite);
+    final index = ((relativeX / chartBreite) * (n - 1)).round().clamp(0, n - 1);
+    setState(() => _ausgewaehlterIndex = index);
   }
 }
 
@@ -100,6 +168,7 @@ class _LinienPainter extends CustomPainter {
   final double maxWert;
   final Color farbe;
   final bool nullLinieZeigen;
+  final int? ausgewaehlterIndex;
 
   _LinienPainter({
     required this.werte,
@@ -107,6 +176,7 @@ class _LinienPainter extends CustomPainter {
     required this.maxWert,
     required this.farbe,
     required this.nullLinieZeigen,
+    required this.ausgewaehlterIndex,
   });
 
   @override
@@ -115,6 +185,8 @@ class _LinienPainter extends CustomPainter {
 
     double yFuer(double wert) =>
         size.height - ((wert - minWert) / spanne) * size.height;
+    double xFuer(int index) =>
+        werte.length == 1 ? 0.0 : size.width * index / (werte.length - 1);
 
     // Gitter zeichnen
     final gitterPaint = Paint()
@@ -134,7 +206,6 @@ class _LinienPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gitterPaint);
     }
 
-
     if (nullLinieZeigen && minWert < 0 && maxWert > 0) {
       final nullY = yFuer(0);
       final nullLinie = Paint()
@@ -152,9 +223,7 @@ class _LinienPainter extends CustomPainter {
     final path = Path();
 
     for (var i = 0; i < werte.length; i++) {
-      final x = werte.length == 1
-          ? 0.0
-          : size.width * i / (werte.length - 1);
+      final x = xFuer(i);
       final y = yFuer(werte[i]);
       if (i == 0) {
         path.moveTo(x, y);
@@ -164,9 +233,23 @@ class _LinienPainter extends CustomPainter {
     }
 
     canvas.drawPath(path, linienPaint);
+
+    // Ausgewählte Position
+    if (ausgewaehlterIndex != null) {
+      final x = xFuer(ausgewaehlterIndex!);
+      final markerLinie = Paint()
+        ..color = Colors.grey.shade500
+        ..strokeWidth = 1;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), markerLinie);
+
+      final y = yFuer(werte[ausgewaehlterIndex!]);
+      canvas.drawCircle(Offset(x, y), 4, Paint()..color = farbe);
+      canvas.drawCircle(
+          Offset(x, y), 4, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 1.5);
+    }
   }
 
   @override
   bool shouldRepaint(covariant _LinienPainter oldDelegate) =>
-      oldDelegate.werte != werte;
+      oldDelegate.werte != werte || oldDelegate.ausgewaehlterIndex != ausgewaehlterIndex;
 }

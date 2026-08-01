@@ -205,6 +205,12 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             const SizedBox(height: 12),
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
+          if (widget.info.hinweis.isNotEmpty && !_installing) ...[
+            const SizedBox(height: 8),
+            Text(widget.info.hinweis,
+                style: const TextStyle(
+                    color: Colors.grey, fontSize: 13)),
+          ],
         ],
       ),
       actions: [
