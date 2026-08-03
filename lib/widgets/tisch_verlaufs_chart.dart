@@ -172,7 +172,7 @@ class _TischVerlaufsChartState extends State<TischVerlaufsChart> {
     // Die nutzbare Breite entspricht der Chart-Fläche abzüglich Y-Achse (56+4px).
     final chartBreite = box.size.width - 60;
     if (chartBreite <= 0) return;
-    final relativeX = (position.dx - 60).clamp(0, chartBreite);
+    final relativeX = position.dx.clamp(0.0, chartBreite);
     final index = ((relativeX / chartBreite) * (n - 1)).round().clamp(0, n - 1);
     setState(() => _ausgewaehlterIndex = index);
   }
