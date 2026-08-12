@@ -34,6 +34,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
   int _anzahlLaufende = 0;
   bool _schneider = false;
   bool _schwarz = false;
+  bool _tout = false;
   bool _gewonnen = true;
   int _multiplikator = 1;
 
@@ -63,6 +64,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
       _anzahlLaufende = bearbeitet.anzahlLaufende;
       _schneider = bearbeitet.schneider;
       _schwarz = bearbeitet.schwarz;
+      _tout = bearbeitet.tout;
       _gewonnen = bearbeitet.gewonnen;
       _multiplikator = bearbeitet.multiplikator;
     } else {
@@ -150,6 +152,9 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
         tarif.aufpreis * _anzahlLaufende + (_schneider ? tarif.aufpreis : 0)
             + (_schwarz ? tarif.aufpreis : 0)
             ;
+    if (_tout) {
+      return (grundpreis + zuschlag) * _multiplikator * 2;
+    }
     return (grundpreis + zuschlag) * _multiplikator;
   }
 
@@ -251,6 +256,12 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
             ),
           const Divider(height: 32),
           _abschnittsTitel(context, 'Details'),
+          if (!_unentschieden)
+            SwitchListTile(
+              title: Text('Spielerpartei gewonnen'),
+              value: _gewonnen,
+              onChanged: (v) => setState(() => _gewonnen = v),
+            ),
           Row(
             children: [
               const Expanded(child: Text('Laufende')),
@@ -270,23 +281,30 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
               ),
             ],
           ),
+          if (!_tout)
+            SwitchListTile(
+              title: const Text('Schneider'),
+              value: _schneider,
+              onChanged: (v) => setState(() => _schneider = v),
+            ),
+            if (_schneider)
+              SwitchListTile(
+                title: const Text('Schwarz'),
+                value: _schwarz,
+                onChanged: (v) => setState(() => _schwarz = v),
+              ),
           SwitchListTile(
-            title: const Text('Schneider'),
-            value: _schneider,
-            onChanged: (v) => setState(() => _schneider = v),
+            title: Text('Tout'),
+            value: _tout,
+            onChanged: (v) => setState(() {
+                _tout = v;
+                if (v) {
+                  _schwarz = false;
+                  _schneider = false;
+                }
+              }
+            ),
           ),
-          if (_schneider)
-            SwitchListTile(
-              title: const Text('Schwarz'),
-              value: _schwarz,
-              onChanged: (v) => setState(() => _schwarz = v),
-            ),
-          if (!_unentschieden)
-            SwitchListTile(
-              title: Text('Spielerpartei gewonnen'),
-              value: _gewonnen,
-              onChanged: (v) => setState(() => _gewonnen = v),
-            ),
           Row(
             children: [
               const Expanded(
@@ -371,6 +389,8 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
       anzahlLaufende: _anzahlLaufende,
       schneider: _schneider,
       schwarz: _schwarz,
+      solorunde: widget.bearbeiteRunde?.solorunde ?? widget.tisch.solorundeAktiv,
+      tout: _tout,
       gewonnen: _gewonnen,
       unentschieden: _unentschieden,
       multiplikator: _multiplikator,

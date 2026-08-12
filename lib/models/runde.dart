@@ -24,6 +24,8 @@ class Runde {
   final int anzahlLaufende;
   final bool schneider;
   final bool schwarz;
+  final bool solorunde;
+  final bool tout;
 
   /// Bei klassischen Spielen: hat die Spielerpartei gewonnen?
   /// Bei individuellen Gewinnern: true, sofern nicht unentschieden.
@@ -53,6 +55,8 @@ class Runde {
     required this.anzahlLaufende,
     required this.schneider,
     this.schwarz = false,
+    this.solorunde = false,
+    this.tout = false,
     required this.gewonnen,
     this.unentschieden = false,
     required this.multiplikator,
@@ -74,6 +78,8 @@ class Runde {
     required int anzahlLaufende,
     required bool schneider,
     bool schwarz = false,
+    bool solorunde = false,
+    bool tout = false,
     required bool gewonnen,
     bool unentschieden = false,
     required int multiplikator,
@@ -117,6 +123,8 @@ class Runde {
       anzahlLaufende: anzahlLaufende,
       schneider: schneider,
       schwarz: schwarz,
+      solorunde: solorunde,
+      tout: tout,
       gewonnen: unentschieden ? false : gewonnen,
       unentschieden: unentschieden,
       multiplikator: multiplikator,
@@ -135,6 +143,8 @@ class Runde {
         'anzahlLaufende': anzahlLaufende,
         'schneider': schneider,
         'schwarz': schwarz,
+        'solorunde': solorunde,
+        'tout': tout,
         'gewonnen': gewonnen,
         'unentschieden': unentschieden,
         'multiplikator': multiplikator,
@@ -156,6 +166,8 @@ class Runde {
     anzahlLaufende: json['anzahlLaufende'] as int? ?? 0,
     schneider: json['schneider'] as bool? ?? false,
     schwarz: json['schwarz'] as bool? ?? false,
+    solorunde: json['solorunde'] as bool? ?? false,
+    tout: json['tout'] as bool? ?? false,
     gewonnen: json['gewonnen'] as bool? ?? true,
     unentschieden: json['unentschieden'] as bool? ?? false,
     multiplikator: json['multiplikator'] as int? ?? 1,

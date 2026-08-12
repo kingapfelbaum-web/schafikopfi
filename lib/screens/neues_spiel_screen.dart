@@ -33,9 +33,9 @@ class _NeuesSpielScreenState extends State<NeuesSpielScreen> {
   }
 
   void _spielerHinzufuegen(Spieler s) {
-    if (_ausgewaehlt.length >= 7) {
+    if (_ausgewaehlt.length >= 14) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximal 7 Spieler pro Tisch möglich')),
+        const SnackBar(content: Text('Maximal 14 Spieler pro Tisch möglich')),
       );
       return;
     }
@@ -125,7 +125,7 @@ class _NeuesSpielScreenState extends State<NeuesSpielScreen> {
                         label: Text(s.name),
                         avatar: const Icon(Icons.add, size: 16),
                         onPressed:
-                         _ausgewaehlt.length >= 7 ? null : () => _spielerHinzufuegen(s),
+                         _ausgewaehlt.length >= 14 ? null : () => _spielerHinzufuegen(s),
                       ))
                   .toList(),
             ),

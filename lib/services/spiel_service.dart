@@ -550,6 +550,11 @@ class SpielService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void solorundeUmschalten(Tisch tisch, bool aktiv) {
+    tisch.solorundeAktiv = aktiv;
+    notifyListeners();
+  }
+
   void rundeHinzufuegen(Tisch tisch, Runde runde) {
     tisch.runden.add(runde);
     notifyListeners();

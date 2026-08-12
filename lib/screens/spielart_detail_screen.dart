@@ -116,6 +116,9 @@ class SpielartDetailScreen extends StatelessWidget {
           spieler != null ? runde.punkteProSpieler[spieler!.id] : null;
 
           return Card(
+            color: runde.tout
+              ? Theme.of(context).colorScheme.error.withAlpha(50)
+              : null,
             child: ListTile(
               leading: Icon(
                 runde.unentschieden

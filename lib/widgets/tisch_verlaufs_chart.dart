@@ -13,6 +13,13 @@ const List<Color> _linienFarben = [
   Colors.purple,
   Colors.teal,
   Colors.brown,
+  Colors.cyan,
+  Colors.pink,
+  Colors.yellow,
+  Colors.indigo,
+  Colors.lime,
+  Colors.grey,
+  Colors.deepPurple,
 ];
 
 class TischVerlaufsChart extends StatefulWidget {
@@ -118,6 +125,7 @@ class _TischVerlaufsChartState extends State<TischVerlaufsChart> {
                         minWert: minWert,
                         maxWert: maxWert,
                         ausgewaehlterIndex: _ausgewaehlterIndex,
+                        context: context,
                       ),
                     ),
                   ),
@@ -184,6 +192,8 @@ class _MehrlinienPainter extends CustomPainter {
   final double minWert;
   final double maxWert;
   final int? ausgewaehlterIndex;
+  final BuildContext context;
+
 
   _MehrlinienPainter({
     required this.punkte,
@@ -191,6 +201,7 @@ class _MehrlinienPainter extends CustomPainter {
     required this.minWert,
     required this.maxWert,
     required this.ausgewaehlterIndex,
+    required this.context,
   });
 
   @override
@@ -220,6 +231,19 @@ class _MehrlinienPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gitterPaint);
     }
 
+    final solorundeHintergrund = Paint()
+      ..color = Theme.of(context).colorScheme.tertiaryContainer.withAlpha(100);
+    for (var i = 0; i < punkte.length; i++) {
+      if (!punkte[i].runde.solorunde) continue;
+      final x = xFuer(i);
+      final xVorher = i == 0 ? x : (xFuer(i - 1) + x) / 2;
+      final xNachher =
+      i == punkte.length - 1 ? x : (x + xFuer(i + 1)) / 2;
+      canvas.drawRect(
+        Rect.fromLTRB(xVorher, 0, xNachher, size.height),
+        solorundeHintergrund,
+      );
+    }
 
     // Nulllinie, falls im sichtbaren Bereich
     if (minWert < 0 && maxWert > 0) {

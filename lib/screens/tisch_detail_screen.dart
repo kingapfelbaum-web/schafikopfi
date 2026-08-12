@@ -36,6 +36,17 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
         notificationPredicate: (notification) => false,
         actions: [
           if (istAktiv)
+            IconButton(
+              icon: Icon(
+                tisch.solorundeAktiv ? Icons.catching_pokemon : Icons.catching_pokemon_outlined,
+                color: tisch.solorundeAktiv ? Theme.of(context).colorScheme.tertiaryContainer : null,
+              ),
+              tooltip: tisch.solorundeAktiv
+                  ? 'Solorunde beenden'
+                  : 'Solorunde starten',
+              onPressed: () => service.solorundeUmschalten(
+                  tisch, !tisch.solorundeAktiv),
+            ),
             FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
@@ -228,6 +239,11 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
                       ? runde.spielartName
                       : '${runde.spielartName}${spielerpartei.isEmpty ? '' : ' – $spielerpartei'}';
                   return ListTile(
+                    tileColor: runde.solorunde
+                      ? Theme.of(context).colorScheme.tertiaryContainer.withAlpha(150)
+                      : runde.tout
+                        ? Theme.of(context).colorScheme.error.withAlpha(50)
+                        : null,
                     leading: Icon(
                       runde.unentschieden
                           ? Icons.remove_circle_outline

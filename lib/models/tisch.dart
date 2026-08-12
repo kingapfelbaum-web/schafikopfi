@@ -21,6 +21,7 @@ class Tisch {
   final List<Spieler> spieler;
   final List<Runde> runden;
   final Set<String> inaktiveSpielerIds;
+  bool solorundeAktiv;
 
   Tisch({
     required this.id,
@@ -30,6 +31,7 @@ class Tisch {
     List<Spielart>? spielarten,
     List<Runde>? runden,
     Set<String>? inaktiveSpielerIds,
+    this.solorundeAktiv = false,
     this.status = TischStatus.aktiv,
     this.beendetAm,
   })  : runden = runden ?? [],
@@ -89,6 +91,7 @@ class Tisch {
         'spielartenIds': spielarten.map((s) => s.id).toList(),
         'runden': runden.map((r) => r.toJson()).toList(),
         'inaktiveSpielerIds': inaktiveSpielerIds.toList(),
+        'solorundeAktiv': solorundeAktiv,
       };
 
   /// Löst spielerIds/spielartenIds gegen die übergebenen globalen Listen auf.
@@ -166,6 +169,7 @@ class Tisch {
       spielarten: spielarten,
       runden: runden,
       inaktiveSpielerIds: Set<String>.from(json['inaktiveSpielerIds'] as List? ?? []),
+      solorundeAktiv: json['solorundeAktiv'] as bool? ?? false,
     );
   }
 }
