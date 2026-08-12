@@ -66,8 +66,15 @@ class SpielService extends ChangeNotifier {
   List<Spieler> get allePlayerinnen => List.unmodifiable(_allePlayerinnen);
   List<Tisch> get aktiveTische =>
       _tische.where((t) => t.status == TischStatus.aktiv).toList();
-  List<Tisch> get beendeteTische =>
-      _tische.where((t) => t.status == TischStatus.beendet).toList();
+  List<Tisch> get beendeteTische {
+    final liste = _tische.where((t) => t.status == TischStatus.beendet).toList();
+    liste.sort((a, b) {
+      final datumA = a.beendetAm ?? a.erstelltAm;
+      final datumB = b.beendetAm ?? b.erstelltAm;
+      return datumB.compareTo(datumA); // neueste zuerst
+    });
+    return liste;
+  }
 
   /// Alle Tische, unabhängig vom Status (z.B. für Spieler-Detailstatistiken).
   List<Tisch> get alleTische => List.unmodifiable(_tische);
