@@ -235,6 +235,173 @@ class SpielService extends ChangeNotifier {
     return konflikte;
   }
 
+  /// Ermittelt Namenskonflikte zwischen Spielern, die in den ausgewählten
+  /// Remote-Tischen vorkommen, und bereits lokal vorhandenen Spielern mit
+  /// gleichem Namen, aber anderer ID.
+  List<SpielerImportKonflikt> remoteKonflikteErmitteln(
+      Map<String, dynamic> json, {
+        required Set<String> tischIds,
+      }) {
+    final relevanteSpielerIds = <String>{};
+    for (final t in (json['tische'] as List? ?? [])) {
+      final tischJson = t as Map<String, dynamic>;
+      if (!tischIds.contains(tischJson['id'])) continue;
+      relevanteSpielerIds
+          .addAll(List<String>.from(tischJson['spielerIds'] as List? ?? []));
+    }
+
+    final konflikte = <SpielerImportKonflikt>[];
+    for (final p in (json['allePlayerinnen'] as List? ?? [])) {
+      try {
+        final importiert = Spieler.fromJson(p as Map<String, dynamic>);
+        if (!relevanteSpielerIds.contains(importiert.id)) continue;
+        // Derselbe Spieler (gleiche ID) ist kein Konflikt, sondern schon
+        // synchronisiert.
+        if (_allePlayerinnen.any((s) => s.id == importiert.id)) continue;
+
+        Spieler? vorhandener;
+        for (final s in _allePlayerinnen) {
+          if (s.name.toLowerCase() == importiert.name.toLowerCase()) {
+            vorhandener = s;
+            break;
+          }
+        }
+        if (vorhandener != null) {
+          konflikte.add(SpielerImportKonflikt(
+            importierteId: importiert.id,
+            name: importiert.name,
+            vorhandeneId: vorhandener.id,
+          ));
+        }
+      } catch (e) {
+        debugPrint('Spieler bei Remote-Kollisionsprüfung übersprungen: $e');
+      }
+    }
+    return konflikte;
+  }
+
+  /// Spielt nur die ausgewählten Tische (inkl. der dafür benötigten Spieler
+  /// und Spielarten) aus einem Remote-Datensatz lokal ein.
+  ///
+  /// [spielerEntscheidungen]: Schlüssel ist die importierte Spieler-ID,
+  /// Wert 'merge' führt mit dem gleichnamigen lokalen Spieler zusammen,
+  /// jeder andere Wert (oder fehlender Eintrag bei echtem Konflikt) legt
+  /// den Spieler neu an – bei einem Namenskonflikt automatisch umbenannt
+  /// zu "Name (Gruppenname)".
+  int serverDatenEinspielenAusgewaehlt(
+      Map<String, dynamic> json, {
+        required Set<String> tischIds,
+        required Map<String, String> spielerEntscheidungen,
+        String? gruppenName,
+      }) {
+    final idUmschreibungSpieler = <String, String>{};
+    for (final p in (json['allePlayerinnen'] as List? ?? [])) {
+      try {
+        final importiert = Spieler.fromJson(p as Map<String, dynamic>);
+
+        if (_allePlayerinnen.any((s) => s.id == importiert.id)) {
+          idUmschreibungSpieler[importiert.id] = importiert.id;
+          continue;
+        }
+
+        final entscheidung = spielerEntscheidungen[importiert.id];
+        if (entscheidung == 'merge') {
+          final ziel = _allePlayerinnen.firstWhere(
+                (s) => s.name.toLowerCase() == importiert.name.toLowerCase(),
+            orElse: () => importiert,
+          );
+          if (!_allePlayerinnen.contains(ziel)) _allePlayerinnen.add(ziel);
+          idUmschreibungSpieler[importiert.id] = ziel.id;
+        } else {
+          final kollidiert = _allePlayerinnen.any(
+                  (s) => s.name.toLowerCase() == importiert.name.toLowerCase());
+          final neuerName = kollidiert && gruppenName != null
+              ? '${importiert.name} ($gruppenName)'
+              : importiert.name;
+          final neu = Spieler(id: importiert.id, name: neuerName);
+          _allePlayerinnen.add(neu);
+          idUmschreibungSpieler[importiert.id] = neu.id;
+        }
+      } catch (e) {
+        debugPrint('Spieler beim selektiven Sync übersprungen: $e');
+      }
+    }
+
+    final idUmschreibungSpielart = <String, String>{};
+    for (final s in (json['spielarten'] as List? ?? [])) {
+      try {
+        final importiert = Spielart.fromJson(s as Map<String, dynamic>);
+        if (_spielarten.any((sa) => sa.id == importiert.id)) {
+          idUmschreibungSpielart[importiert.id] = importiert.id;
+          continue;
+        }
+        final vorhandene = _spielarten.firstWhere(
+              (sa) => sa.name.toLowerCase() == importiert.name.toLowerCase(),
+          orElse: () => importiert,
+        );
+        if (!_spielarten.contains(vorhandene)) _spielarten.add(vorhandene);
+        idUmschreibungSpielart[importiert.id] = vorhandene.id;
+      } catch (e) {
+        debugPrint('Spielart beim selektiven Sync übersprungen: $e');
+      }
+    }
+
+    var eingespielt = 0;
+    for (final t in (json['tische'] as List? ?? [])) {
+      final tischJson = Map<String, dynamic>.from(t as Map<String, dynamic>);
+      final tischId = tischJson['id'] as String;
+      if (!tischIds.contains(tischId)) continue;
+      if (_tische.any((tt) => tt.id == tischId)) continue; // bereits vorhanden
+
+      try {
+        tischJson['spielerIds'] = List<String>.from(
+            tischJson['spielerIds'] as List? ?? [])
+            .map((id) => idUmschreibungSpieler[id] ?? id)
+            .toList();
+        tischJson['spielartenIds'] = List<String>.from(
+            tischJson['spielartenIds'] as List? ?? [])
+            .map((id) => idUmschreibungSpielart[id] ?? id)
+            .toList();
+
+        final urspruenglicheRunden =
+        List<dynamic>.from(tischJson['runden'] as List? ?? []);
+        tischJson['runden'] = urspruenglicheRunden.map((r) {
+          final rundeJson =
+          Map<String, dynamic>.from(r as Map<String, dynamic>);
+          rundeJson['spielerParteiIds'] = List<String>.from(
+              rundeJson['spielerParteiIds'] as List? ?? [])
+              .map((id) => idUmschreibungSpieler[id] ?? id)
+              .toList();
+          rundeJson['gegenParteiIds'] = List<String>.from(
+              rundeJson['gegenParteiIds'] as List? ?? [])
+              .map((id) => idUmschreibungSpieler[id] ?? id)
+              .toList();
+          final urspruenglichePunkte = Map<String, dynamic>.from(
+              rundeJson['punkteProSpieler'] as Map? ?? {});
+          rundeJson['punkteProSpieler'] = {
+            for (final eintrag in urspruenglichePunkte.entries)
+              (idUmschreibungSpieler[eintrag.key] ?? eintrag.key):
+              eintrag.value,
+          };
+          return rundeJson;
+        }).toList();
+
+        final tisch = Tisch.fromJson(
+          tischJson,
+          allePlayerinnen: _allePlayerinnen,
+          alleSpielarten: _spielarten,
+        );
+        _tische.add(tisch);
+        eingespielt += 1;
+      } catch (e) {
+        debugPrint('Tisch beim selektiven Sync übersprungen: $e');
+      }
+    }
+
+    notifyListeners();
+    return eingespielt;
+  }
+
   /// Fügt die Daten aus einem Export zum bestehenden Zustand hinzu, statt
   /// ihn zu ersetzen. Tische werden immer als neue Einträge hinzugefügt.
   ///
@@ -373,6 +540,92 @@ class SpielService extends ChangeNotifier {
 
     notifyListeners();
     return importierteTische;
+  }
+
+  /// Spielt vom Server geladene Gruppendaten additiv in den lokalen Stand
+  /// ein. Im Unterschied zu datenImportierenHinzufuegen bleiben IDs stabil
+  /// (kein Neuvergeben), damit wiederholte Synchronisierung keine Duplikate
+  /// erzeugt: bereits lokal vorhandene Spieler/Spielarten/Tische/Runden
+  /// (gleiche ID) werden nicht verändert, nur fehlende werden ergänzt.
+  void serverDatenEinspielen(Map<String, dynamic> json) {
+    for (final p in (json['allePlayerinnen'] as List? ?? [])) {
+      try {
+        final importiert = Spieler.fromJson(p as Map<String, dynamic>);
+        final vorhandenPerId = _allePlayerinnen.any((s) => s.id == importiert.id);
+        if (!vorhandenPerId) {
+          final vorhandenPerName = _allePlayerinnen.any(
+                  (s) => s.name.toLowerCase() == importiert.name.toLowerCase());
+          if (!vorhandenPerName) {
+            _allePlayerinnen.add(importiert);
+          }
+        }
+      } catch (e) {
+        debugPrint('Spieler beim Sync übersprungen: $e');
+      }
+    }
+
+    for (final s in (json['spielarten'] as List? ?? [])) {
+      try {
+        final importiert = Spielart.fromJson(s as Map<String, dynamic>);
+        final vorhandenPerId = _spielarten.any((sa) => sa.id == importiert.id);
+        if (!vorhandenPerId) {
+          final vorhandenPerName = _spielarten.any(
+                  (sa) => sa.name.toLowerCase() == importiert.name.toLowerCase());
+          if (!vorhandenPerName) {
+            _spielarten.add(importiert);
+          }
+        }
+      } catch (e) {
+        debugPrint('Spielart beim Sync übersprungen: $e');
+      }
+    }
+
+    for (final t in (json['tische'] as List? ?? [])) {
+      try {
+        final tischJson = t as Map<String, dynamic>;
+        final tischId = tischJson['id'] as String;
+        final lokalerTreffer = _tische.where((tt) => tt.id == tischId);
+
+        if (lokalerTreffer.isEmpty) {
+          final neu = Tisch.fromJson(
+            tischJson,
+            allePlayerinnen: _allePlayerinnen,
+            alleSpielarten: _spielarten,
+          );
+          _tische.add(neu);
+        } else {
+          final tisch = lokalerTreffer.first;
+
+          for (final r in (tischJson['runden'] as List? ?? [])) {
+            try {
+              final remoteRunde = Runde.fromJson(r as Map<String, dynamic>);
+              final existiertLokal =
+              tisch.runden.any((rr) => rr.id == remoteRunde.id);
+              if (!existiertLokal) {
+                tisch.runden.add(remoteRunde);
+              }
+            } catch (e) {
+              debugPrint('Runde beim Sync übersprungen: $e');
+            }
+          }
+
+          // Ein remote als beendet markierter Tisch wird lokal übernommen
+          // (aber ein remote noch aktiver Tisch setzt einen lokal bereits
+          // beendeten Tisch nicht zurück).
+          if (tischJson['status'] == 'beendet' &&
+              tisch.status == TischStatus.aktiv) {
+            tisch.status = TischStatus.beendet;
+            tisch.beendetAm = tischJson['beendetAm'] != null
+                ? DateTime.tryParse(tischJson['beendetAm'] as String)
+                : DateTime.now();
+          }
+        }
+      } catch (e) {
+        debugPrint('Tisch beim Sync übersprungen: $e');
+      }
+    }
+
+    notifyListeners();
   }
 
   /// Exportiert die ausgewählten Tische inkl. aller Spieler, die dort
@@ -879,4 +1132,44 @@ class SpielerDetailStatistik {
 
   double get gewinnquote =>
       anzahlRunden == 0 ? 0 : gewonneneRunden / anzahlRunden;
+}
+
+/// Führt zwei Export-JSON-Dokumente additiv zusammen: Spieler, Spielarten
+/// und Tische aus [zusatz] werden zu [basis] hinzugefügt, sofern ihre ID
+/// dort nicht schon vorhanden ist (kein Überschreiben bestehender Einträge).
+Map<String, dynamic> zusammenfuehrenJsonDokumente(
+    Map<String, dynamic> basis, Map<String, dynamic> zusatz) {
+  final allePlayerinnen =
+  List<dynamic>.from(basis['allePlayerinnen'] as List? ?? []);
+  final spielarten = List<dynamic>.from(basis['spielarten'] as List? ?? []);
+  final tische = List<dynamic>.from(basis['tische'] as List? ?? []);
+
+  final playerIds = allePlayerinnen
+      .map((p) => (p as Map<String, dynamic>)['id'] as String)
+      .toSet();
+  for (final p in (zusatz['allePlayerinnen'] as List? ?? [])) {
+    final id = (p as Map<String, dynamic>)['id'] as String;
+    if (playerIds.add(id)) allePlayerinnen.add(p);
+  }
+
+  final spielartIds = spielarten
+      .map((s) => (s as Map<String, dynamic>)['id'] as String)
+      .toSet();
+  for (final s in (zusatz['spielarten'] as List? ?? [])) {
+    final id = (s as Map<String, dynamic>)['id'] as String;
+    if (spielartIds.add(id)) spielarten.add(s);
+  }
+
+  final tischIds =
+  tische.map((t) => (t as Map<String, dynamic>)['id'] as String).toSet();
+  for (final t in (zusatz['tische'] as List? ?? [])) {
+    final id = (t as Map<String, dynamic>)['id'] as String;
+    if (tischIds.add(id)) tische.add(t);
+  }
+
+  return {
+    'allePlayerinnen': allePlayerinnen,
+    'spielarten': spielarten,
+    'tische': tische,
+  };
 }

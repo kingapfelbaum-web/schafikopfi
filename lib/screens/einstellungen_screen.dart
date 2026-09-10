@@ -6,8 +6,8 @@ import '../models/tarif.dart';
 import '../services/spiel_service.dart';
 import 'spiele_bearbeiten_screen.dart';
 import 'spieler_verwalten_screen.dart';
-
 import 'export_auswahl_screen.dart';
+import 'gruppe_screen.dart';
 
 class EinstellungenScreen extends StatefulWidget {
   const EinstellungenScreen({super.key});
@@ -383,6 +383,30 @@ class _EinstellungenScreenState extends State<EinstellungenScreen> {
                 ),
               ),
             ],
+          ),
+          const Divider(height: 40),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Gruppen-Synchronisierung',
+                  style: Theme.of(context).textTheme.titleMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.group_work),
+                label: const Text('Verwalten'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const GruppeScreen()),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Teile Spieler und Spiele mit anderen Geräten über eine gemeinsame Gruppe.',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
           const Divider(height: 40),
           Text('Daten sichern', style: Theme.of(context).textTheme.titleMedium),
