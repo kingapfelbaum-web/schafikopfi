@@ -154,7 +154,7 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
                   child: Text(
                     _ladeRemote
                         ? 'Prüfe, welche Spiele bereits synchronisiert sind …'
-                        : 'Wähle aus, welche deiner Spiele in die Gruppe hochgeladen werden sollen.',
+                        : 'Nur beendete Spiele können hochgeladen werden. Wähle aus, welche in die Gruppe übertragen werden sollen.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -162,18 +162,21 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
                   child: _ladeRemote
                       ? const Center(child: CircularProgressIndicator())
                       : Builder(builder: (context) {
-                    final nochNichtSynchronisiert = lokaleTische
+                    final beendeteTische = lokaleTische
+                        .where((t) => t.status == TischStatus.beendet)
+                        .toList();
+                    final nochNichtSynchronisiert = beendeteTische
                         .where((t) =>
                     !_bereitsSynchronisierteIds.contains(t.id))
                         .toList();
-                    final bereitsSynchronisiert = lokaleTische
+                    final bereitsSynchronisiert = beendeteTische
                         .where((t) =>
                         _bereitsSynchronisierteIds.contains(t.id))
                         .toList();
 
-                    if (lokaleTische.isEmpty) {
+                    if (beendeteTische.isEmpty) {
                       return const Center(
-                          child: Text('Keine lokalen Spiele'));
+                          child: Text('Keine beendeten Spiele vorhanden. Nur beendete Spiele können hochgeladen werden.'));
                     }
 
                     return ListView(
