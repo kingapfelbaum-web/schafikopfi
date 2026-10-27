@@ -694,6 +694,7 @@ class SpielService extends ChangeNotifier {
         bool eigeneBetraege = false,
         double siegBetrag = 0,
         double verlustBetrag = 0,
+        bool hatSpieler = true,
       }) {
     final s = Spielart(
       id: _uuid.v4(),
@@ -704,6 +705,7 @@ class SpielService extends ChangeNotifier {
       eigeneBetraege: eigeneBetraege,
       siegBetrag: siegBetrag,
       verlustBetrag: verlustBetrag,
+      hatSpieler: hatSpieler,
     );
     _spielarten.add(s);
     _standardAusgewaehlteSpielartenIds.add(s.id);
@@ -720,6 +722,7 @@ class SpielService extends ChangeNotifier {
         bool eigeneBetraege = false,
         double siegBetrag = 0,
         double verlustBetrag = 0,
+        bool hatSpieler = true,
       }) {
     spielart.name = name;
     spielart.einzelspieler = einzelspieler;
@@ -728,6 +731,7 @@ class SpielService extends ChangeNotifier {
     spielart.eigeneBetraege = eigeneBetraege;
     spielart.siegBetrag = siegBetrag;
     spielart.verlustBetrag = verlustBetrag;
+    spielart.hatSpieler = hatSpieler;
     notifyListeners();
   }
 
@@ -834,6 +838,11 @@ class SpielService extends ChangeNotifier {
 
   void tischBeenden(Tisch tisch) {
     tisch.beenden();
+    notifyListeners();
+  }
+
+  void tischReaktivieren(Tisch tisch) {
+    tisch.reaktivieren();
     notifyListeners();
   }
 

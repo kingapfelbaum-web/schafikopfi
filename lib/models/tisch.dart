@@ -78,7 +78,11 @@ class Tisch {
 
   void beenden() {
     status = TischStatus.beendet;
-    beendetAm = DateTime.now();
+    beendetAm==null ? beendetAm = DateTime.now() : null;
+  }
+
+  void reaktivieren() {
+    status = TischStatus.aktiv;
   }
 
   Map<String, dynamic> toJson() => {

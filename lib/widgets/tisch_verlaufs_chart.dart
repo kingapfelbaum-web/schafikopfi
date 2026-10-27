@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
+import 'package:provider/provider.dart';
 
 import '../models/spieler.dart';
+import '../models/tisch.dart';
+import '../screens/runde_erfassen_screen.dart';
 import '../services/spiel_service.dart';
 
 /// Feste Farbpalette für die Spieler-Linien (reihum verwendet).
@@ -25,11 +27,13 @@ const List<Color> _linienFarben = [
 class TischVerlaufsChart extends StatefulWidget {
   final List<Spieler> spieler;
   final List<TischVerlaufsPunkt> punkte;
+  final Tisch? tisch;
 
   const TischVerlaufsChart({
     super.key,
     required this.spieler,
     required this.punkte,
+    this.tisch,
   });
 
   @override
@@ -65,108 +69,149 @@ class _TischVerlaufsChartState extends State<TischVerlaufsChart> {
         ? widget.punkte[_ausgewaehlterIndex!]
         : null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Legende
-        Wrap(
-          spacing: 12,
-          runSpacing: 4,
-          children: List.generate(widget.spieler.length, (i) {
-            final farbe = _linienFarben[i % _linienFarben.length];
-            return Row(
-              mainAxisSize: MainAxisSize.min,
+    final spielerPartei = ausgewaehlterPunkt != null
+        ? ausgewaehlterPunkt.runde.spielerParteiIds
+        .map((id) {
+      final match = widget.spieler.where((s) => s.id == id);
+      return match.isNotEmpty ? match.first.name : id;
+    })
+        .join(' & ')
+        : '';
+
+    return TapRegion(
+        onTapOutside: (_) {
+          if (_ausgewaehlterIndex != null) {
+            setState(() => _ausgewaehlterIndex = null);
+          }
+        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Legende
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: List.generate(widget.spieler.length, (i) {
+              final farbe = _linienFarben[i % _linienFarben.length];
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                      width: 10, height: 10, color: farbe),
+                  const SizedBox(width: 4),
+                  Text(widget.spieler[i].name,
+                      style: Theme.of(context).textTheme.bodySmall),
+                ],
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 220,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                    width: 10, height: 10, color: farbe),
-                const SizedBox(width: 4),
-                Text(widget.spieler[i].name,
-                    style: Theme.of(context).textTheme.bodySmall),
-              ],
-            );
-          }),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 220,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Y-Achse: Maximal-/Minimalwert
-              SizedBox(
-                width: 56,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('${maxWert.toStringAsFixed(2)} €',
-                        style: Theme.of(context).textTheme.bodySmall),
-                    Text('${minWert.toStringAsFixed(2)} €',
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ],
+                // Y-Achse: Maximal-/Minimalwert
+                SizedBox(
+                  width: 56,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${maxWert.toStringAsFixed(2)} €',
+                          style: Theme.of(context).textTheme.bodySmall),
+                      Text('${minWert.toStringAsFixed(2)} €',
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanDown: (details) => _beiBeruehrung(details.localPosition),
-                  onPanUpdate: (details) => _beiBeruehrung(details.localPosition),
-                  onPanEnd: (_) => setState(() => _ausgewaehlterIndex = null),
-                  onTapDown: (details) => _beiBeruehrung(details.localPosition),
-                  child: MouseRegion(
-                    onHover: (event) => _beiBeruehrung(event.localPosition),
-                    onExit: (_) => setState(() => _ausgewaehlterIndex = null),
-                    child: CustomPaint(
-                      size: Size.infinite,
-                      painter: _MehrlinienPainter(
-                        punkte: widget.punkte,
-                        spieler: widget.spieler,
-                        minWert: minWert,
-                        maxWert: maxWert,
-                        ausgewaehlterIndex: _ausgewaehlterIndex,
-                        context: context,
+                const SizedBox(width: 4),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanDown: (details) => _beiBeruehrung(details.localPosition),
+                    onPanUpdate: (details) => _beiBeruehrung(details.localPosition),
+                    onTapDown: (details) => _beiBeruehrung(details.localPosition),
+                    child: MouseRegion(
+                      onHover: (event) => _beiBeruehrung(event.localPosition),
+                      child: CustomPaint(
+                        size: Size.infinite,
+                        painter: _MehrlinienPainter(
+                          punkte: widget.punkte,
+                          spieler: widget.spieler,
+                          minWert: minWert,
+                          maxWert: maxWert,
+                          ausgewaehlterIndex: _ausgewaehlterIndex,
+                          context: context,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        // Tooltip-Bereich: zeigt die Runde am ausgewählten Punkt
-        SizedBox(
-          height: 80,
-          child: ausgewaehlterPunkt == null
-              ? null
-              : Card(
-            color: Theme.of(context).colorScheme.secondaryContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Runde ${ausgewaehlterPunkt.rundenNummer}: ${ausgewaehlterPunkt.runde.spielartName}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+          const SizedBox(height: 8),
+          // Tooltip-Bereich: zeigt die Runde am ausgewählten Punkt
+          SizedBox(
+            height: 80,
+            child: ausgewaehlterPunkt == null
+                ? null
+                : Card(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () {
+                  final service = context.read<SpielService>();
+                  final tisch = widget.tisch ??
+                      service.alleTische.firstWhere(
+                            (t) => t.runden.any((r) => r.id == ausgewaehlterPunkt.runde.id),
+                      );
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => RundeErfassenScreen(
+                        tisch: tisch,
+                        service: service,
+                        bearbeiteRunde: ausgewaehlterPunkt.runde,
+                      ),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Runde ${ausgewaehlterPunkt.rundenNummer}: ${ausgewaehlterPunkt.runde.spielartName}${spielerPartei.isNotEmpty ? ' – $spielerPartei' : ''}',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              maxLines: 2,
+                              widget.spieler
+                                  .map((s) =>
+                              '${s.name}: ${(ausgewaehlterPunkt.saldoProSpieler[s.id] ?? 0) >= 0 ? '+' : ''}${(ausgewaehlterPunkt.saldoProSpieler[s.id] ?? 0).toStringAsFixed(2)} €')
+                                  .join('  ·  '),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, size: 20),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    maxLines: 2,
-                    widget.spieler
-                        .map((s) =>
-                    '${s.name}: ${(ausgewaehlterPunkt.saldoProSpieler[s.id] ?? 0) >= 0 ? '+' : ''}${(ausgewaehlterPunkt.saldoProSpieler[s.id] ?? 0).toStringAsFixed(2)} €')
-                        .join('  ·  '),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../services/spiel_service.dart';
+import '../screens/runde_erfassen_screen.dart';
+import '../models/tisch.dart';
+import '../models/runde.dart';
+
 
 /// Zeigt eine Linie aus VerlaufsPunkt-Werten inkl. Y-Achsen-Beschriftung
 /// (Minimal-/Maximalwert) am linken Rand.
@@ -40,6 +45,7 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
       );
     }
 
+    final service = context.watch<SpielService>();
     final werte = widget.punkte.map(widget.wertSelector).toList();
     double minWert, maxWert;
 
@@ -67,85 +73,145 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
         ? widget.punkte[_ausgewaehlterIndex!]
         : null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: 220,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Y-Achse: Maximal-/Minimalwert
-              SizedBox(
-                width: 56,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(widget.formatWert(maxWert),
-                        style: Theme.of(context).textTheme.bodySmall),
-                    Text(widget.formatWert(minWert),
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ],
+    final spielerPartei = (ausgewaehlterPunkt != null && ausgewaehlterPunkt.runde != null)
+        ? _spielerParteiNamen(ausgewaehlterPunkt.runde!, service)
+        : '';
+
+    return TapRegion(
+      onTapOutside: (_) {
+        if (_ausgewaehlterIndex != null) {
+          setState(() => _ausgewaehlterIndex = null);
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 220,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Y-Achse: Maximal-/Minimalwert
+                SizedBox(
+                  width: 56,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(widget.formatWert(maxWert),
+                          style: Theme.of(context).textTheme.bodySmall),
+                      Text(widget.formatWert(minWert),
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanDown: (details) => _beiBeruehrung(details.localPosition),
-                  onPanUpdate: (details) => _beiBeruehrung(details.localPosition),
-                  onPanEnd: (_) => setState(() => _ausgewaehlterIndex = null),
-                  onTapDown: (details) => _beiBeruehrung(details.localPosition),
-                  child: MouseRegion(
-                    onHover: (event) => _beiBeruehrung(event.localPosition),
-                    onExit: (_) => setState(() => _ausgewaehlterIndex = null),
-                    child: CustomPaint(
-                      size: Size.infinite,
-                      painter: _LinienPainter(
-                        werte: werte,
-                        minWert: minWert,
-                        maxWert: maxWert,
-                        farbe: widget.linienFarbe,
-                        nullLinieZeigen: widget.nullLinieZeigen,
-                        ausgewaehlterIndex: _ausgewaehlterIndex,
+                const SizedBox(width: 4),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanDown: (details) => _beiBeruehrung(details.localPosition),
+                    onPanUpdate: (details) => _beiBeruehrung(details.localPosition),
+                    onTapDown: (details) => _beiBeruehrung(details.localPosition),
+                    child: MouseRegion(
+                      onHover: (event) => _beiBeruehrung(event.localPosition),
+                      child: CustomPaint(
+                        size: Size.infinite,
+                        painter: _LinienPainter(
+                          werte: werte,
+                          minWert: minWert,
+                          maxWert: maxWert,
+                          farbe: widget.linienFarbe,
+                          nullLinieZeigen: widget.nullLinieZeigen,
+                          ausgewaehlterIndex: _ausgewaehlterIndex,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        // Tooltip-Bereich: zeigt die Runde am ausgewählten Punkt
-        SizedBox(
-          height: 80,
-          child: ausgewaehlterPunkt == null
-              ? null
-              : Card(
-            color: Theme.of(context).colorScheme.secondaryContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Runde ${ausgewaehlterPunkt.rundenNummer}${ausgewaehlterPunkt.runde != null ? ': ${ausgewaehlterPunkt.runde!.spielartName}' : ''}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+          const SizedBox(height: 8),
+          // Tooltip-Bereich: zeigt die Runde am ausgewählten Punkt
+          SizedBox(
+            height: 80,
+            child: ausgewaehlterPunkt == null
+                ? null
+                : Card(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              clipBehavior: Clip.antiAlias,
+              child: ausgewaehlterPunkt.runde == null
+                  ? Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Runde ${ausgewaehlterPunkt.rundenNummer}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.formatWert(widget.wertSelector(ausgewaehlterPunkt)),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              )
+                  : InkWell(
+                onTap: () {
+                  final service = context.read<SpielService>();
+                  final runde = ausgewaehlterPunkt.runde!;
+                  final tisch = service.alleTische
+                      .cast<Tisch?>()
+                      .firstWhere(
+                        (t) => t?.runden.any((r) => r.id == runde.id) ?? false,
+                    orElse: () => null,
+                  );
+                  if (tisch != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => RundeErfassenScreen(
+                          tisch: tisch,
+                          service: service,
+                          bearbeiteRunde: runde,
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Runde ${ausgewaehlterPunkt.rundenNummer}: ${ausgewaehlterPunkt.runde!.spielartName}${spielerPartei.isNotEmpty ? ' – $spielerPartei' : ''}',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.formatWert(widget.wertSelector(ausgewaehlterPunkt)),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, size: 20),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    widget.formatWert(widget.wertSelector(ausgewaehlterPunkt)),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -159,6 +225,23 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
     final relativeX = position.dx.clamp(0.0, chartBreite);
     final index = ((relativeX / chartBreite) * (n - 1)).round().clamp(0, n - 1);
     setState(() => _ausgewaehlterIndex = index);
+  }
+
+  String _spielerParteiNamen(Runde runde, SpielService service) {
+    if (runde.spielerParteiIds.isEmpty) return '';
+    final tisch = service.alleTische.cast<Tisch?>().firstWhere(
+          (t) => t?.runden.any((r) => r.id == runde.id) ?? false,
+      orElse: () => null,
+    );
+    return runde.spielerParteiIds.map((id) {
+      if (tisch != null) {
+        final match = tisch.spieler.where((s) => s.id == id);
+        if (match.isNotEmpty) return match.first.name;
+      }
+      final matchGlobal = service.allePlayerinnen.where((s) => s.id == id);
+      if (matchGlobal.isNotEmpty) return matchGlobal.first.name;
+      return id;
+    }).join(' & ');
   }
 }
 

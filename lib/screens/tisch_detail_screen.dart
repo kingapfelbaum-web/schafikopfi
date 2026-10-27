@@ -47,6 +47,7 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
               onPressed: () => service.solorundeUmschalten(
                   tisch, !tisch.solorundeAktiv),
             ),
+          if (istAktiv)
             FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
@@ -55,6 +56,16 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
               onPressed: () => _beendenBestaetigen(context, service),
               icon: const Icon(Icons.flag),
               label: const Text('Beenden'),
+            ),
+          if (!istAktiv)
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              ),
+              onPressed: () => _reaktivierenBestaetigen(context, service),
+              icon: const Icon(Icons.flag),
+              label: const Text('Reaktivieren'),
             ),
         ],
       ),
@@ -173,7 +184,7 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
                 ),
             ],
             const Divider(height: 32),
-            if (tisch.runden.length >= 2 && tisch.beendetAm != null) ...[
+            if (tisch.runden.length >= 2 && tisch.status == TischStatus.beendet) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Align(
@@ -196,6 +207,7 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
                       child: TischVerlaufsChart(
                         spieler: tisch.spieler,
                         punkte: verlauf,
+                        tisch: tisch,
                       ),
                     ),
                   );
@@ -274,9 +286,7 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
                             : Colors.red,
                       ),
                     ),
-                    onLongPress: istAktiv
-                        ? () => _rundeOptionenDialog(context, service, runde)
-                        : null,
+                    onTap: istAktiv ? () => _rundeOptionenDialog(context, service, runde) : () => _rundeDialog(context, service, runde),
                   );
                 },
               ),
@@ -319,6 +329,32 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
                 ..pop();
             },
             child: const Text('Beenden'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _reaktivierenBestaetigen(BuildContext context, SpielService service) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Spiel reaktivieren?'),
+        content: const Text(
+            'Der Tisch wird wieder eröffnet. Es können wieder Runden erfasst und angepasst werden.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Abbrechen')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
+            onPressed: () {
+              service.tischReaktivieren(tisch);
+              Navigator.of(ctx)
+                ..pop()
+                ..pop();
+            },
+            child: const Text('Reaktivieren'),
           ),
         ],
       ),
@@ -458,6 +494,19 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _rundeDialog(
+      BuildContext context, SpielService service, Runde runde) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RundeErfassenScreen(
+          tisch: tisch,
+          service: service,
+          bearbeiteRunde: runde,
         ),
       ),
     );

@@ -24,6 +24,7 @@ class RundeErfassenScreen extends StatefulWidget {
 }
 
 class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
+  bool get _istAktiv => widget.tisch.status == TischStatus.aktiv;
   late Set<String> _aktiveSpielerIds;
   late Spielart _spielart;
 
@@ -181,18 +182,44 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.bearbeiteRunde == null
-          ? 'Runde erfassen'
-          : 'Runde bearbeiten')),
+      appBar: AppBar(title: Text(
+          !_istAktiv
+            ? 'Runde Details'
+            : widget.bearbeiteRunde == null
+              ? 'Runde erfassen'
+              : 'Runde bearbeiten'
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (brauchtAuswahl) ...[
+          if (!_istAktiv) ...[
+            Card(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: const Padding(
+                padding: EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.lock_outline, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Dieser Tisch ist beendet. Die Runde kann nicht mehr bearbeitet werden.',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (brauchtAuswahl && _istAktiv) ...[
             _abschnittsTitel(context, 'Wer spielt mit? (genau 4)'),
             ...alleSpieler.map((s) => CheckboxListTile(
                   value: _aktiveSpielerIds.contains(s.id),
                   title: Text(s.name),
-                  onChanged: (checked) {
+                  onChanged: _istAktiv
+                    ? (checked) {
                     setState(() {
                       if (checked == true) {
                         if (_aktiveSpielerIds.length < 4) {
@@ -203,27 +230,40 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
                         _spielerParteiIds.remove(s.id);
                       }
                     });
-                  },
+                  }
+                  : null,
                 )),
             const SizedBox(height: 8),
           ],
           _abschnittsTitel(context, 'Spielart'),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: spielarten
-                .map((s) => ChoiceChip(
-                      label: Text(s.name),
-                      selected: _spielart == s,
-                      onSelected: (_) {
-                        setState(() {
-                          _spielart = s;
-                          _spielerParteiIds.clear();
-                        });
-                      },
-                    ))
-                .toList(),
-          ),
+          if (!_istAktiv)
+            ChoiceChip(
+              label: Container(
+                width: MediaQuery.of(context).size.width,
+                child: Text(_spielart.name, overflow: TextOverflow.ellipsis,),
+              ),
+              selected: true,
+              onSelected: null,
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: spielarten
+                  .map((s) => ChoiceChip(
+                label: Text(s.name),
+                selected: _spielart == s,
+                onSelected: (checked) {
+                  if (checked == true) {
+                    setState(() {
+                      _spielart = s;
+                      _spielerParteiIds.clear();
+                    });
+                  }
+                },
+              ))
+                  .toList(),
+            ),
           const SizedBox(height: 16),
           _abschnittsTitel(
             context,
@@ -234,7 +274,8 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
           ..._aktiveSpieler.map((s) => CheckboxListTile(
                 value: _spielerParteiIds.contains(s.id),
                 title: Text(s.name),
-                onChanged: (checked) {
+                onChanged: _istAktiv
+                  ? (checked) {
                   setState(() {
                     if (checked == true) {
                       if (_spielerParteiIds.length < _maxSpielerpartei) {
@@ -244,7 +285,8 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
                       _spielerParteiIds.remove(s.id);
                     }
                   });
-                },
+                }
+                : null,
               )),
           if (_individuell && _unentschieden)
             const Padding(
@@ -260,14 +302,14 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
             SwitchListTile(
               title: Text('Spielerpartei gewonnen'),
               value: _gewonnen,
-              onChanged: (v) => setState(() => _gewonnen = v),
+              onChanged: _istAktiv ? (v) => setState(() => _gewonnen = v) : null,
             ),
           Row(
             children: [
               const Expanded(child: Text('Laufende')),
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline),
-                onPressed: _anzahlLaufende > 0
+                onPressed: _istAktiv && _anzahlLaufende > 0
                     ? () => setState(() => _anzahlLaufende--)
                     : null,
               ),
@@ -275,7 +317,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
                   style: Theme.of(context).textTheme.titleMedium),
               IconButton(
                 icon: const Icon(Icons.add_circle_outline),
-                onPressed: _anzahlLaufende < 14
+                onPressed: _istAktiv && _anzahlLaufende < 14
                     ? () => setState(() => _anzahlLaufende++)
                     : null,
               ),
@@ -285,25 +327,25 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
             SwitchListTile(
               title: const Text('Schneider'),
               value: _schneider,
-              onChanged: (v) => setState(() => _schneider = v),
+              onChanged: _istAktiv ? (v) => setState(() => _schneider = v) : null,
             ),
             if (_schneider)
               SwitchListTile(
                 title: const Text('Schwarz'),
                 value: _schwarz,
-                onChanged: (v) => setState(() => _schwarz = v),
+                onChanged: _istAktiv ? (v) => setState(() => _schwarz = v) : null,
               ),
           SwitchListTile(
             title: Text('Tout'),
             value: _tout,
-            onChanged: (v) => setState(() {
+            onChanged: _istAktiv ? (v) => setState(() {
                 _tout = v;
                 if (v) {
                   _schwarz = false;
                   _schneider = false;
                 }
               }
-            ),
+            ) : null,
           ),
           Row(
             children: [
@@ -311,7 +353,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
                   child: Text('Multiplikator (z.B. Kontra/Re, Tout)')),
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline),
-                onPressed: _multiplikator > 1
+                onPressed: _istAktiv && _multiplikator > 1
                     ? () => setState(() => _multiplikator=_multiplikator~/2)
                     : null,
               ),
@@ -319,7 +361,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
                   style: Theme.of(context).textTheme.titleMedium),
               IconButton(
                 icon: const Icon(Icons.add_circle_outline),
-                onPressed: () => setState(() => _multiplikator=_multiplikator*2),
+                onPressed: _istAktiv ? () => setState(() => _multiplikator=_multiplikator*2) : null,
               ),
             ],
           ),
@@ -357,9 +399,14 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: _auswahlGueltig ? _speichern : null,
-                  child: Text(widget.bearbeiteRunde == null ? 'Speichern' : 'Änderungen speichern'),
+                child: _istAktiv
+                  ? FilledButton(
+                      onPressed: _auswahlGueltig ? _speichern : null,
+                      child: Text(widget.bearbeiteRunde == null ? 'Speichern' : 'Änderungen speichern'),
+                    )
+                  : OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Schließen'),
                 ),
               ),
             ),

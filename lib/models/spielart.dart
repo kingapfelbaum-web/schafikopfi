@@ -31,6 +31,7 @@ class Spielart {
   bool eigeneBetraege;
   double siegBetrag;
   double verlustBetrag;
+  bool hatSpieler;
 
   Spielart({
     required this.id,
@@ -41,6 +42,7 @@ class Spielart {
     this.eigeneBetraege = false,
     this.siegBetrag = 0,
     this.verlustBetrag = 0,
+    this.hatSpieler = false,
   });
 
   int get anzahlSpielerpartei => einzelspieler ? 1 : 2;
@@ -54,6 +56,7 @@ class Spielart {
         'eigeneBetraege': eigeneBetraege,
         'siegBetrag': siegBetrag,
         'verlustBetrag': verlustBetrag,
+        'hatSpieler': hatSpieler,
       };
 
   factory Spielart.fromJson(Map<String, dynamic> json) => Spielart(
@@ -65,6 +68,7 @@ class Spielart {
         eigeneBetraege: json['eigeneBetraege'] as bool? ?? false,
         siegBetrag: (json['siegBetrag'] as num?)?.toDouble() ?? 0,
         verlustBetrag: (json['verlustBetrag'] as num?)?.toDouble() ?? 0,
+        hatSpieler: json['hatSpieler'] as bool? ?? false,
       );
 
   @override
@@ -76,10 +80,10 @@ class Spielart {
 
 /// Der Standard-Katalog, mit dem die App startet.
 List<Spielart> standardSpielarten() => [
-      Spielart(id: 'sauspiel', name: 'Sauspiel', einzelspieler: false),
-      Spielart(id: 'wenz', name: 'Wenz', einzelspieler: true),
-      Spielart(id: 'geier', name: 'Geier', einzelspieler: true),
-      Spielart(id: 'solo', name: 'Solo', einzelspieler: true),
+      Spielart(id: 'sauspiel', name: 'Sauspiel', einzelspieler: false, hatSpieler: true),
+      Spielart(id: 'wenz', name: 'Wenz', einzelspieler: true, hatSpieler: true),
+      Spielart(id: 'geier', name: 'Geier', einzelspieler: true, hatSpieler: true),
+      Spielart(id: 'solo', name: 'Solo', einzelspieler: true, hatSpieler: true),
       Spielart(
         id: 'ramsch',
         name: 'Ramsch',
