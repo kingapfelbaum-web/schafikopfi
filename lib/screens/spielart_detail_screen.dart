@@ -139,7 +139,7 @@ class SpielartDetailScreen extends StatelessWidget {
                   : '$details · ${runde.spielwert.toStringAsFixed(2)} € je Verlierer'),
               trailing: Text(
                 persoenlichePunkte != null
-                    ? '${persoenlichePunkte >= 0 ? '+' : ''}${persoenlichePunkte.toStringAsFixed(2)} €'
+                    ? '${persoenlichePunkte > 0.005 ? '+' : ''}${persoenlichePunkte.toStringAsFixed(2)} €'
                     : (runde.unentschieden
                     ? 'unentschieden'
                     : runde.gewonnen
@@ -148,9 +148,9 @@ class SpielartDetailScreen extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: persoenlichePunkte != null
-                      ? (persoenlichePunkte > 0
+                      ? (persoenlichePunkte > 0.005
                       ? Colors.green
-                      : persoenlichePunkte < 0
+                      : persoenlichePunkte < -0.005
                       ? Colors.red
                       : null)
                       : (runde.unentschieden

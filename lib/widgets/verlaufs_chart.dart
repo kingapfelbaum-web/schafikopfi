@@ -138,7 +138,7 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
             child: ausgewaehlterPunkt == null
                 ? null
                 : Card(
-              color: Theme.of(context).colorScheme.secondaryContainer,
+              color: Theme.of(context).colorScheme.outlineVariant,
               clipBehavior: Clip.antiAlias,
               child: ausgewaehlterPunkt.runde == null
                   ? Padding(
@@ -193,7 +193,7 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
                             Text(
                               'Runde ${ausgewaehlterPunkt.rundenNummer}: ${ausgewaehlterPunkt.runde!.spielartName}${spielerPartei.isNotEmpty ? ' – $spielerPartei' : ''}',
                               style: const TextStyle(fontWeight: FontWeight.bold),
-                              maxLines: 1,
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             Text(

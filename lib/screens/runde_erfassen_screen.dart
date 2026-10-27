@@ -269,11 +269,16 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
             context,
             _individuell
                 ? 'Gewinner (${_spielerParteiIds.length}/2, 0 = unentschieden)'
-                : 'Spielerpartei (${_spielerParteiIds.length}/$_maxSpielerpartei)',
+                : _spielart.hatSpieler && _maxSpielerpartei > 1
+                  ? 'Spielerpartei (${_spielerParteiIds.length}/$_maxSpielerpartei - 1. Gewählter = Spieler)'
+                  : 'Spielerpartei (${_spielerParteiIds.length}/$_maxSpielerpartei)',
           ),
-          ..._aktiveSpieler.map((s) => CheckboxListTile(
+          ..._aktiveSpieler.map((s) {
+            final istSpieler = _spielart.hatSpieler && _spielerParteiIds.isNotEmpty && _spielerParteiIds.first == s.id;
+            final istMitspieler = _spielart.hatSpieler && _spielerParteiIds.length == 2 && _spielerParteiIds.last == s.id;
+            return CheckboxListTile(
                 value: _spielerParteiIds.contains(s.id),
-                title: Text(s.name),
+                title: Text(istSpieler ? '${s.name} (Spieler)' : istMitspieler ? '${s.name} (Mitspieler)' : s.name),
                 onChanged: _istAktiv
                   ? (checked) {
                   setState(() {
@@ -287,7 +292,8 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
                   });
                 }
                 : null,
-              )),
+              );
+          }),
           if (_individuell && _unentschieden)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),

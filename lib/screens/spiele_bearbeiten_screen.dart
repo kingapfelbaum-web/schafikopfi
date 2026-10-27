@@ -67,6 +67,7 @@ class SpieleBearbeitenScreen extends StatelessWidget {
     bool individuelleGewinner = bestehende?.individuelleGewinner ?? false;
     int individuelleAnzahl = bestehende?.individuelleAnzahl ?? 0;
     bool eigeneBetraege = bestehende?.eigeneBetraege ?? false;
+    bool hatSpieler = bestehende?.hatSpieler ?? true;
     final siegController = TextEditingController(
       text: (bestehende?.siegBetrag ?? (einzelspieler ? standardTarif.sauspielPreis : standardTarif.soloPreis)).toStringAsFixed(2));
     final verlustController = TextEditingController(
@@ -100,6 +101,15 @@ class SpieleBearbeitenScreen extends StatelessWidget {
                   selected: {einzelspieler},
                   onSelectionChanged: (selection) =>
                       setState(() => einzelspieler = selection.first),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Hat Spieler'),
+                  subtitle: const Text(
+                      'Der als erstes ausgewählte Spieler der Partei gilt als Ansager des Spiels (z.B. Rufer beim Sauspiel).'),
+                  value: hatSpieler,
+                  onChanged: (v) => setState(() => hatSpieler = v),
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(
@@ -176,17 +186,17 @@ class SpieleBearbeitenScreen extends StatelessWidget {
                 if (bestehende == null) {
                   if (individuelleGewinner) {
                   service.spielartHinzufuegen(name, einzelspieler,
-                      individuelleGewinner: individuelleGewinner, individuelleAnzahl: individuelleAnzahl, eigeneBetraege: eigeneBetraege, siegBetrag: double.parse(siegController.text), verlustBetrag: double.parse(verlustController.text));
+                      individuelleGewinner: individuelleGewinner, individuelleAnzahl: individuelleAnzahl, eigeneBetraege: eigeneBetraege, siegBetrag: double.parse(siegController.text), verlustBetrag: double.parse(verlustController.text), hatSpieler: hatSpieler);
                   } else {
-                    service.spielartHinzufuegen(name, einzelspieler);
+                    service.spielartHinzufuegen(name, einzelspieler, hatSpieler: hatSpieler);
                   }
                 } else {
                   if (individuelleGewinner) {
                     service.spielartAktualisieren(
                         bestehende, name, einzelspieler,
-                        individuelleGewinner: individuelleGewinner, individuelleAnzahl: individuelleAnzahl, eigeneBetraege: eigeneBetraege, siegBetrag: double.parse(siegController.text), verlustBetrag: double.parse(verlustController.text));
+                        individuelleGewinner: individuelleGewinner, individuelleAnzahl: individuelleAnzahl, eigeneBetraege: eigeneBetraege, siegBetrag: double.parse(siegController.text), verlustBetrag: double.parse(verlustController.text), hatSpieler: hatSpieler);
                   } else {
-                    service.spielartAktualisieren(bestehende, name, einzelspieler);
+                    service.spielartAktualisieren(bestehende, name, einzelspieler, hatSpieler: hatSpieler);
                   }
                 }
                 Navigator.of(ctx).pop();

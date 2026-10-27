@@ -129,9 +129,9 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
                             fontWeight: FontWeight.bold,
                             color: istInaktiv
                                 ? Colors.grey
-                                : punkte > 0
+                                : punkte > 0.005
                                 ? Colors.green
-                                : punkte < 0
+                                : punkte < -0.005
                                 ? Colors.red
                                 : null,
                           ),

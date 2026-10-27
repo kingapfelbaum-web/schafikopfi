@@ -157,58 +157,89 @@ class _TischVerlaufsChartState extends State<TischVerlaufsChart> {
             height: 80,
             child: ausgewaehlterPunkt == null
                 ? null
-                : Card(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () {
-                  final service = context.read<SpielService>();
-                  final tisch = widget.tisch ??
-                      service.alleTische.firstWhere(
-                            (t) => t.runden.any((r) => r.id == ausgewaehlterPunkt.runde.id),
-                      );
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => RundeErfassenScreen(
-                        tisch: tisch,
-                        service: service,
-                        bearbeiteRunde: ausgewaehlterPunkt.runde,
-                      ),
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Runde ${ausgewaehlterPunkt.rundenNummer}: ${ausgewaehlterPunkt.runde.spielartName}${spielerPartei.isNotEmpty ? ' – $spielerPartei' : ''}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                              maxLines: 1,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              maxLines: 2,
-                              widget.spieler
-                                  .map((s) =>
-                              '${s.name}: ${(ausgewaehlterPunkt.saldoProSpieler[s.id] ?? 0) >= 0 ? '+' : ''}${(ausgewaehlterPunkt.saldoProSpieler[s.id] ?? 0).toStringAsFixed(2)} €')
-                                  .join('  ·  '),
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
+                : () {
+              final runde = ausgewaehlterPunkt.runde;
+              final spielartMatch = widget.tisch?.spielarten.where((s) => s.name == runde.spielartName);
+              final hatSpieler = spielartMatch != null && spielartMatch.isNotEmpty
+                  ? spielartMatch.first.hatSpieler
+                  : runde.spielerParteiIds.isNotEmpty;
+
+              // Grau bei hatSpieler == false, unentschieden oder leerer Partei:
+              final kartenFarbe = (runde.unentschieden || runde.spielerParteiIds.isEmpty)
+                  ? Theme.of(context).colorScheme.outlineVariant
+                  : runde.gewonnen
+                  ? Colors.green.shade300
+                  : Colors.red.shade300;
+              return Card(
+                margin: EdgeInsets.zero,
+                color: kartenFarbe,
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () {
+                    final service = context.read<SpielService>();
+                    final tisch = widget.tisch ??
+                        service.alleTische.firstWhere(
+                              (t) => t.runden.any((r) => r.id == ausgewaehlterPunkt.runde.id),
+                        );
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => RundeErfassenScreen(
+                          tisch: tisch,
+                          service: service,
+                          bearbeiteRunde: ausgewaehlterPunkt.runde,
                         ),
                       ),
-                      const Icon(Icons.chevron_right, size: 20),
-                    ],
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Runde ${ausgewaehlterPunkt.rundenNummer}: ${ausgewaehlterPunkt.runde.spielartName}${spielerPartei.isNotEmpty ? ' – $spielerPartei' : ''}',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              ConstrainedBox(constraints: const BoxConstraints(maxHeight: 28),
+                                child: ClipRect(
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 0,
+                                    children: widget.spieler.where((s) => ausgewaehlterPunkt.runde.punkteProSpieler.containsKey(s.id)).map((s) {
+                                      // Kumulierter Gesamt-Saldo bis zu dieser Runde
+                                      final gesamtSaldo = ausgewaehlterPunkt.saldoProSpieler[s.id] ?? 0;
+                                      // Punkte aus genau dieser Runde (für Gewinn/Verlust-Farbe)
+                                      final rundenPunkte = ausgewaehlterPunkt.runde.punkteProSpieler[s.id] ?? 0;
+
+                                      final vorzeichen = gesamtSaldo.abs() < 0.005 ? '' : (gesamtSaldo > 0.005 ? '+' : '');
+                                      final text = '${s.name}: $vorzeichen${gesamtSaldo.toStringAsFixed(2)} €';
+
+                                      return Text(
+                                        text,
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, size: 20),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            }(),
           ),
         ],
       ),

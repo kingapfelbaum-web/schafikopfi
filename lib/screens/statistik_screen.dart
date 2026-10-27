@@ -62,13 +62,13 @@ class _SpielerStatistikTab extends StatelessWidget {
                 '${s.anzahlTische} Tische · ${s.anzahlRunden} Runden · '
                 '${(s.gewinnquote * 100).toStringAsFixed(0)}% Gewinnquote'),
             trailing: Text(
-              '${s.gesamtPunkte > 0 ? '+' : ''}${s.gesamtPunkte.toStringAsFixed(2)} €',
+              '${s.gesamtPunkte > 0.005 ? '+' : ''}${s.gesamtPunkte.toStringAsFixed(2)} €',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: s.gesamtPunkte > 0
+                color: s.gesamtPunkte > 0.005
                     ? Colors.green
-                    : s.gesamtPunkte < 0
+                    : s.gesamtPunkte < -0.005
                         ? Colors.red
                         : null,
               ),
