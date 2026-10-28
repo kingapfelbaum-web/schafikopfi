@@ -73,9 +73,29 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
         ? widget.punkte[_ausgewaehlterIndex!]
         : null;
 
-    final spielerPartei = (ausgewaehlterPunkt != null && ausgewaehlterPunkt.runde != null)
+    final spielerPartei = (ausgewaehlterPunkt != null &&
+        ausgewaehlterPunkt.runde != null)
         ? _spielerParteiNamen(ausgewaehlterPunkt.runde!, service)
         : '';
+
+    final double delta;
+    if (_ausgewaehlterIndex == null) {
+      delta = 0;
+    }
+    else if (_ausgewaehlterIndex == 0) {
+      delta = widget.wertSelector(widget.punkte[0]);
+    }
+    else {
+      delta = widget.wertSelector(widget.punkte[_ausgewaehlterIndex!]) -
+          widget.wertSelector(widget.punkte[_ausgewaehlterIndex! - 1]);
+    }
+
+    final Color kartenFarbe = (_ausgewaehlterIndex == null ||
+        delta.abs() < 0.005) ? Theme
+        .of(context)
+        .colorScheme
+        .outline : (delta > 0.005 ? Colors.green.shade300 : Colors.red
+        .shade300);
 
     return TapRegion(
       onTapOutside: (_) {
@@ -99,9 +119,15 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(widget.formatWert(maxWert),
-                          style: Theme.of(context).textTheme.bodySmall),
+                          style: Theme
+                              .of(context)
+                              .textTheme
+                              .bodySmall),
                       Text(widget.formatWert(minWert),
-                          style: Theme.of(context).textTheme.bodySmall),
+                          style: Theme
+                              .of(context)
+                              .textTheme
+                              .bodySmall),
                     ],
                   ),
                 ),
@@ -109,9 +135,12 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
                 Expanded(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onPanDown: (details) => _beiBeruehrung(details.localPosition),
-                    onPanUpdate: (details) => _beiBeruehrung(details.localPosition),
-                    onTapDown: (details) => _beiBeruehrung(details.localPosition),
+                    onPanDown: (details) =>
+                        _beiBeruehrung(details.localPosition),
+                    onPanUpdate: (details) =>
+                        _beiBeruehrung(details.localPosition),
+                    onTapDown: (details) =>
+                        _beiBeruehrung(details.localPosition),
                     child: MouseRegion(
                       onHover: (event) => _beiBeruehrung(event.localPosition),
                       child: CustomPaint(
@@ -138,7 +167,7 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
             child: ausgewaehlterPunkt == null
                 ? null
                 : Card(
-              color: Theme.of(context).colorScheme.outlineVariant,
+              color: kartenFarbe,
               clipBehavior: Clip.antiAlias,
               child: ausgewaehlterPunkt.runde == null
                   ? Padding(
@@ -153,8 +182,12 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      widget.formatWert(widget.wertSelector(ausgewaehlterPunkt)),
-                      style: Theme.of(context).textTheme.bodySmall,
+                      widget.formatWert(
+                          widget.wertSelector(ausgewaehlterPunkt)),
+                      style: Theme
+                          .of(context)
+                          .textTheme
+                          .bodySmall,
                     ),
                   ],
                 ),
@@ -172,11 +205,12 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
                   if (tisch != null) {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => RundeErfassenScreen(
-                          tisch: tisch,
-                          service: service,
-                          bearbeiteRunde: runde,
-                        ),
+                        builder: (_) =>
+                            RundeErfassenScreen(
+                              tisch: tisch,
+                              service: service,
+                              bearbeiteRunde: runde,
+                            ),
                       ),
                     );
                   }
@@ -191,14 +225,23 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'Runde ${ausgewaehlterPunkt.rundenNummer}: ${ausgewaehlterPunkt.runde!.spielartName}${spielerPartei.isNotEmpty ? ' – $spielerPartei' : ''}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              'Runde ${ausgewaehlterPunkt
+                                  .rundenNummer}: ${ausgewaehlterPunkt.runde!
+                                  .spielartName}${spielerPartei.isNotEmpty
+                                  ? ' – $spielerPartei'
+                                  : ''}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold),
                               maxLines: 1, overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              widget.formatWert(widget.wertSelector(ausgewaehlterPunkt)),
-                              style: Theme.of(context).textTheme.bodySmall,
+                              widget.formatWert(
+                                  widget.wertSelector(ausgewaehlterPunkt)),
+                              style: Theme
+                                  .of(context)
+                                  .textTheme
+                                  .bodySmall,
                             ),
                           ],
                         ),

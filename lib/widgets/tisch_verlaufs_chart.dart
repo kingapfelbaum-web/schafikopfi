@@ -160,9 +160,6 @@ class _TischVerlaufsChartState extends State<TischVerlaufsChart> {
                 : () {
               final runde = ausgewaehlterPunkt.runde;
               final spielartMatch = widget.tisch?.spielarten.where((s) => s.name == runde.spielartName);
-              final hatSpieler = spielartMatch != null && spielartMatch.isNotEmpty
-                  ? spielartMatch.first.hatSpieler
-                  : runde.spielerParteiIds.isNotEmpty;
 
               // Grau bei hatSpieler == false, unentschieden oder leerer Partei:
               final kartenFarbe = (runde.unentschieden || runde.spielerParteiIds.isEmpty)
@@ -215,7 +212,6 @@ class _TischVerlaufsChartState extends State<TischVerlaufsChart> {
                                       // Kumulierter Gesamt-Saldo bis zu dieser Runde
                                       final gesamtSaldo = ausgewaehlterPunkt.saldoProSpieler[s.id] ?? 0;
                                       // Punkte aus genau dieser Runde (für Gewinn/Verlust-Farbe)
-                                      final rundenPunkte = ausgewaehlterPunkt.runde.punkteProSpieler[s.id] ?? 0;
 
                                       final vorzeichen = gesamtSaldo.abs() < 0.005 ? '' : (gesamtSaldo > 0.005 ? '+' : '');
                                       final text = '${s.name}: $vorzeichen${gesamtSaldo.toStringAsFixed(2)} €';
