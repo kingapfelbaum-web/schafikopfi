@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "399531109517",
+    "project_id": "schafkopf-8f6db",
+    "storage_bucket": "schafkopf-8f6db.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:399531109517:android:7d27fe36e02ed4bbb046c4",
+        "android_client_info": {
+          "package_name": "com.kingapfelbaum.schafkopf"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxbuC141ibBkt75Jx4qbuKZsFvNUBMO3Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
