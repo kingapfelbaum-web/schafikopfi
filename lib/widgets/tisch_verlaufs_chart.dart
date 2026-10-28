@@ -159,7 +159,6 @@ class _TischVerlaufsChartState extends State<TischVerlaufsChart> {
                 ? null
                 : () {
               final runde = ausgewaehlterPunkt.runde;
-              final spielartMatch = widget.tisch?.spielarten.where((s) => s.name == runde.spielartName);
 
               // Grau bei hatSpieler == false, unentschieden oder leerer Partei:
               final kartenFarbe = (runde.unentschieden || runde.spielerParteiIds.isEmpty)
@@ -285,7 +284,7 @@ class _MehrlinienPainter extends CustomPainter {
         punkte.length == 1 ? 0.0 : size.width * index / (punkte.length - 1);
     // Gitter zeichnen
     final gitterPaint = Paint()
-      ..color = Colors.grey.withOpacity(0.4)
+      ..color = Colors.grey.withValues(alpha: 0.4)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 

@@ -148,7 +148,7 @@ class _NeuesSpielScreenState extends State<NeuesSpielScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _ausgewaehlt.length,
-                  onReorder: (oldIndex, newIndex) {
+                  onReorderItem: (oldIndex, newIndex) {
                     setState(() {
                       if (newIndex > oldIndex) newIndex -= 1;
                       final s = _ausgewaehlt.removeAt(oldIndex);

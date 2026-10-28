@@ -316,7 +316,7 @@ class _LinienPainter extends CustomPainter {
 
     // Gitter zeichnen
     final gitterPaint = Paint()
-      ..color = Colors.grey.withOpacity(0.4)
+      ..color = Colors.grey.withValues(alpha: 0.4)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 

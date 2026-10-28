@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/spieler.dart';
 import '../models/tisch.dart';
 import '../models/runde.dart';
+import '../models/tarif.dart';
 import '../services/spiel_service.dart';
 import 'runde_erfassen_screen.dart';
 import '../widgets/tisch_verlaufs_chart.dart';
@@ -18,6 +19,7 @@ class TischDetailScreen extends StatefulWidget {
 
 class _TischDetailScreenState extends State<TischDetailScreen> {
   bool _spielerEingeklappt = false;
+  bool _optionenEingeklappt = true;
   int? _zeitraum; // null = alle Runden, sonst letzte N Runden
 
   Tisch get tisch => widget.tisch;
@@ -98,7 +100,7 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: tisch.spieler.length,
-                onReorder: istAktiv
+                onReorderItem: istAktiv
                     ? (oldIndex, newIndex) => service.spielerReihenfolgeAendern(
                     tisch, oldIndex, newIndex)
                     : (_, __) {},
@@ -162,26 +164,56 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
                   );
                 },
               ),
-              if (istAktiv)
+              if (istAktiv) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Wrap(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+                  child: Row(
                     children: [
-                      TextButton.icon(
-                        icon: const Icon(Icons.person_add),
-                        label: const Text('Spieler hinzufügen'),
-                        onPressed: () =>
-                            _spielerHinzufuegenDialog(context, service),
+                      Expanded(
+                        child: Text(
+                          'Optionen',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
                       ),
-                      TextButton.icon(
-                        icon: const Icon(Icons.tune),
-                        label: const Text('Spiele bearbeiten'),
-                        onPressed: () =>
-                            _spieleBearbeitenDialog(context, service),
+                      IconButton(
+                        icon: Icon(_optionenEingeklappt
+                            ? Icons.expand_more
+                            : Icons.expand_less),
+                        tooltip: _optionenEingeklappt ? 'Ausklappen' : 'Einklappen',
+                        onPressed: () => setState(
+                                () => _optionenEingeklappt = !_optionenEingeklappt),
                       ),
                     ],
                   ),
                 ),
+                if (!_optionenEingeklappt)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextButton.icon(
+                          icon: const Icon(Icons.person_add),
+                          label: const Text('Spieler hinzufügen'),
+                          onPressed: () =>
+                              _spielerHinzufuegenDialog(context, service),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.tune),
+                          label: const Text('Spiele bearbeiten'),
+                          onPressed: () =>
+                              _spieleBearbeitenDialog(context, service),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.tune),
+                          label: const Text('Tarif anpassen'),
+                          onPressed: () =>
+                              _tarifBearbeitenDialog(context, service),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ],
             const Divider(height: 32),
             if (tisch.runden.length >= 2 && tisch.status == TischStatus.beendet) ...[
@@ -593,6 +625,89 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _tarifBearbeitenDialog(BuildContext context, SpielService service) {
+    final tarif = tisch.tarif;
+    final sauspielController = TextEditingController(
+        text: tarif.sauspielPreis.toStringAsFixed(2));
+    final soloController =
+    TextEditingController(text: tarif.soloPreis.toStringAsFixed(2));
+    final aufpreisController =
+    TextEditingController(text: tarif.aufpreis.toStringAsFixed(2));
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tarif anpassen'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: sauspielController,
+                    decoration: const InputDecoration(
+                      labelText: 'Sauspiel (€)',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: soloController,
+                    decoration: const InputDecoration(
+                      labelText: 'Solo (€)',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: aufpreisController,
+              decoration: const InputDecoration(
+                labelText: 'Aufpreis je Laufendem / Schneider (€)',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType:
+              const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final neuerTarif = Tarif(
+                sauspielPreis: double.tryParse(
+                    sauspielController.text.replaceAll(',', '.')) ??
+                    tarif.sauspielPreis,
+                soloPreis: double.tryParse(
+                    soloController.text.replaceAll(',', '.')) ??
+                    tarif.soloPreis,
+                aufpreis: double.tryParse(
+                    aufpreisController.text.replaceAll(',', '.')) ??
+                    tarif.aufpreis,
+              );
+              service.tarifAendern(tisch, neuerTarif);
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('Speichern'),
+          ),
+        ],
       ),
     );
   }

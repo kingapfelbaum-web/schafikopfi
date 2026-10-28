@@ -238,7 +238,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
           _abschnittsTitel(context, 'Spielart'),
           if (!_istAktiv)
             ChoiceChip(
-              label: Container(
+              label: SizedBox(
                 width: MediaQuery.of(context).size.width,
                 child: Text(_spielart.name, overflow: TextOverflow.ellipsis,),
               ),
@@ -306,7 +306,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
           _abschnittsTitel(context, 'Details'),
           if (!_unentschieden)
             SwitchListTile(
-              title: Text('Spielerpartei gewonnen'),
+              title: const Text('Spielerpartei gewonnen'),
               value: _gewonnen,
               onChanged: _istAktiv ? (v) => setState(() => _gewonnen = v) : null,
             ),
@@ -342,7 +342,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
                 onChanged: _istAktiv ? (v) => setState(() => _schwarz = v) : null,
               ),
           SwitchListTile(
-            title: Text('Tout'),
+            title: const Text('Tout'),
             value: _tout,
             onChanged: _istAktiv ? (v) => setState(() {
                 _tout = v;
