@@ -10,7 +10,6 @@ import 'screens/aktive_spiele_screen.dart';
 import 'screens/statistik_screen.dart';
 import 'screens/einstellungen_screen.dart';
 import 'screens/neues_spiel_screen.dart';
-import 'services/update_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -75,53 +74,22 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
-  UpdateInfo? _updateInfo;
 
   @override
   void initState() {
     super.initState();
-    _updatePruefen();
   }
 
-  Future<void> _updatePruefen() async {
-    debugPrint('Update-Check gestartet...');
-    final info = await UpdateService.pruefeAufUpdate();
-    debugPrint('UpdateInfo: ${info?.version ?? "null"}');
-    if (info != null && mounted) {
-      setState(() => _updateInfo = info);
-      // Dialog nur zeigen wenn nicht ignoriert
-      if (!info.ignoriert) {
-        _showUpdateDialog(info, context);
-      }
-    }
-  }
-
-  void _showUpdateDialog(UpdateInfo info, BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => _UpdateDialog(
-        info: info,
-        onIgnore: () {
-          debugPrint('Update ignoriert');
-          UpdateService.versionsIgnorieren(info.version);
-          Navigator.of(dialogContext).pop();
-        },
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: [
-          AktiveSpieleScreen(updateInfo: _updateInfo, onUpdateTap: () {
-            if (_updateInfo != null) _showUpdateDialog(_updateInfo!, context);
-          }),
-          const StatistikScreen(),
-          const EinstellungenScreen()
+        children: const [
+          AktiveSpieleScreen(),
+          StatistikScreen(),
+          EinstellungenScreen()
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -162,82 +130,3 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _UpdateDialog extends StatefulWidget {
-  final UpdateInfo info;
-  final VoidCallback onIgnore;
-  const _UpdateDialog({required this.info, required this.onIgnore});
-
-  @override
-  State<_UpdateDialog> createState() => _UpdateDialogState();
-}
-
-class _UpdateDialogState extends State<_UpdateDialog> {
-  bool _installing = false;
-  double? _progress;
-  String? _error;
-
-  Future<void> _install() async {
-    setState(() {
-      _installing = true;
-      _progress = null;
-      _error = null;
-    });
-    try {
-      await UpdateService.downloadAndInstall(
-        widget.info,
-        onProgress: (p) {
-          if (mounted) setState(() => _progress = p);
-        },
-      );
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      setState(() => _error = 'Installation fehlgeschlagen: $e');
-    } finally {
-      if (mounted) setState(() => _installing = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(_installing ? 'Update wird heruntergeladen' : 'Update verfügbar'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_installing) ...[
-            LinearProgressIndicator(value: _progress),
-            const SizedBox(height: 12),
-            Text(
-              _progress != null ? '${(_progress! * 100).toStringAsFixed(0)} %' : 'Lädt...',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ] else
-            Text('Version ${widget.info.version} steht auf GitHub bereit.'),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ],
-          if (widget.info.hinweis.isNotEmpty && !_installing) ...[
-            const SizedBox(height: 8),
-            Text(widget.info.hinweis,
-                style: const TextStyle(
-                    color: Colors.grey, fontSize: 13)),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _installing ? null : widget.onIgnore,
-          child: const Text('Ignorieren'),
-        ),
-        FilledButton(
-          onPressed: _installing ? null : _install,
-          child: _installing
-              ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Jetzt installieren'),
-        ),
-      ],
-    );
-  }
-}
