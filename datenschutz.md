@@ -1,6 +1,6 @@
-# Datenschutzerklärung – Schafkopf-App
+# Datenschutzerklärung – Schafkopf-Rechner
 
-Stand: 28.10.2026
+Stand: 29.10.2026
 
 ## 1. Verantwortlicher
 
@@ -26,7 +26,7 @@ Die App speichert die Daten, die du selbst eingibst:
 
 ## 4. Lokale Speicherung
 
-Alle Daten werden standardmäßig ausschließlich lokal auf deinem Gerät gespeichert. Sie werden ohne dein Zutun nicht an den Entwickler oder Dritte übermittelt. Beim Deinstallieren der App oder beim Löschen der App-Daten werden sie entfernt.
+Alle Daten werden standardmäßig ausschließlich lokal auf deinem Gerät gespeichert. Sie werden ohne dein Zutun nicht an den Entwickler oder Dritte übermittelt. Beim Löschen der App-Daten in den Android-Einstellungen oder bei der Deinstallation der App werden die lokalen Daten in der Regel entfernt. Ist die Android-Datensicherung (Google-Backup) auf deinem Gerät aktiviert, kann Android jedoch eine Sicherungskopie der App-Daten in deinem Google-Konto speichern und bei einer erneuten Installation wiederherstellen. Diese Sicherung kannst du in den Android-Einstellungen unter Google → Sicherung verwalten bzw. löschen. Der Entwickler hat darauf keinen Zugriff. Daten in einer Online-Gruppe (Abschnitt 5) werden durch die Deinstallation nicht gelöscht.
 
 ## 5. Optionale Gruppen-Synchronisation (Firebase)
 
@@ -38,22 +38,18 @@ Rechtsgrundlage ist Art. 6 Abs. 1 lit. a und b DSGVO (deine Einwilligung durch a
 
 Hinweis: Bitte lade nur Namen hoch, mit deren Verwendung die betroffenen Mitspieler einverstanden sind.
 
-## 6. Export und Teilen
+## 6. Speicherdauer und Löschung
 
-Über die Export-Funktion kannst du Daten als Text über das Teilen-Menü deines Geräts weitergeben. Das erfolgt nur auf deine Veranlassung; die Wahl der Zielanwendung liegt bei dir.
+Lokale Daten bleiben bis zum Löschen in der App, zum Löschen der App-Daten oder zur Deinstallation gespeichert (zu einer möglichen Android-Sicherung siehe Abschnitt 4). Daten in einer Online-Gruppe werden weder durch die Deinstallation noch durch das Entfernen der Gruppe in der App gelöscht. Gruppen, die seit 5 Jahren nicht mehr synchronisiert wurden, werden gelöscht. Auf Wunsch löschen wir eine Gruppe auch früher: Schreibe dazu an die oben genannte E-Mail-Adresse und nenne den Gruppen-Code.
 
-## 7. Speicherdauer und Löschung
-
-Lokale Daten bleiben bis zum Löschen in der App oder zur Deinstallation gespeichert. Daten in einer Gruppe bleiben in der Online-Datenbank, bis sie gelöscht werden. Zur Löschung von Gruppendaten kontaktiere uns bitte unter der oben genannten E-Mail-Adresse und nenne den Gruppen-Code.
-
-## 8. Deine Rechte
+## 7. Deine Rechte
 
 Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch sowie auf Widerruf einer erteilten Einwilligung. Außerdem kannst du dich bei einer Datenschutz-Aufsichtsbehörde beschweren.
 
-## 9. Kinder
+## 8. Kinder
 
 Die App richtet sich nicht gezielt an Kinder unter 13 Jahren.
 
-## 10. Änderungen
+## 9. Änderungen
 
 Diese Erklärung kann angepasst werden, etwa bei neuen Funktionen. Es gilt die jeweils in der App bzw. im Play Store verlinkte aktuelle Fassung.
