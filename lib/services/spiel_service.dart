@@ -370,6 +370,9 @@ class SpielService extends ChangeNotifier {
             final lokalerTisch = _tische[lokalerIndex];
             final vorhandeneRundenIds = lokalerTisch.runden.map((r) => r.id).toSet();
 
+            final hatteLokaleExtras = lokalerTisch.runden.any(
+                    (lr) => !neuerTisch.runden.any((rr) => rr.id == lr.id));
+
             for (final remoteRunde in neuerTisch.runden) {
               if (vorhandeneRundenIds.add(remoteRunde.id)) {
                 lokalerTisch.runden.add(remoteRunde);
@@ -380,6 +383,11 @@ class SpielService extends ChangeNotifier {
             if (neuerTisch.status == TischStatus.beendet) {
               lokalerTisch.status = TischStatus.beendet;
               lokalerTisch.beendetAm ??= neuerTisch.beendetAm ?? DateTime.now();
+            }
+            if (hatteLokaleExtras) {
+              lokalerTisch.aktualisiertAm = DateTime.now();
+            } else {
+              lokalerTisch.aktualisiertAm = neuerTisch.aktualisiertAm;
             }
             eingespielt += 1;
           }
@@ -421,6 +429,40 @@ class SpielService extends ChangeNotifier {
       'tische': ausgewaehlteTische.map((t) => t.toJson()).toList(),
     };
     return const JsonEncoder.withIndent('  ').convert(json);
+  }
+
+  /// Aktualisiert die lokalen Tische mit den zusammengeführten Daten aus einem Sync-Upload.
+  void lokaleTischeAusMergedAktualisieren(
+      Map<String, dynamic> mergedJson, {
+        required Set<String> tischIds,
+      }) {
+    final tischeJson = mergedJson['tische'] as List? ?? [];
+    var geaendert = false;
+
+    for (final t in tischeJson) {
+      final tMap = t as Map<String, dynamic>;
+      final id = tMap['id'] as String;
+      if (!tischIds.contains(id)) continue;
+
+      final idx = _tische.indexWhere((tt) => tt.id == id);
+      if (idx != -1) {
+        try {
+          final mergedTisch = Tisch.fromJson(
+            tMap,
+            allePlayerinnen: _allePlayerinnen,
+            alleSpielarten: _spielarten,
+          );
+          _tische[idx] = mergedTisch;
+          geaendert = true;
+        } catch (e) {
+          debugPrint('Fehler beim Aktualisieren des lokalen Tisches $id: $e');
+        }
+      }
+    }
+
+    if (geaendert) {
+      notifyListeners();
+    }
   }
 
   // ---------- Spieler ----------
@@ -586,6 +628,7 @@ class SpielService extends ChangeNotifier {
 
   void rundeHinzufuegen(Tisch tisch, Runde runde) {
     tisch.runden.add(runde);
+    tisch.aktualisiertAm = DateTime.now();
     notifyListeners();
   }
 
@@ -593,11 +636,13 @@ class SpielService extends ChangeNotifier {
     final index = tisch.runden.indexWhere((r) => r.id == alteRunde.id);
     if (index == -1) return;
     tisch.runden[index] = neueRunde;
+    tisch.aktualisiertAm = DateTime.now();
     notifyListeners();
   }
 
   void rundeLoeschen(Tisch tisch, Runde runde) {
     tisch.runden.removeWhere((r) => r.id == runde.id);
+    tisch.aktualisiertAm = DateTime.now();
     notifyListeners();
   }
 
@@ -884,10 +929,12 @@ class SpielerDetailStatistik {
 /// und Tische aus [zusatz] werden zu [basis] hinzugefügt, sofern ihre ID
 /// dort nicht schon vorhanden ist (kein Überschreiben bestehender Einträge).
 Map<String, dynamic> zusammenfuehrenJsonDokumente(
-    Map<String, dynamic> basis, Map<String, dynamic> zusatz, {
+    Map<String, dynamic> basis,
+    Map<String, dynamic> zusatz, {
       Map<String, String> tischModi = const {},
-}) {
-  final allePlayerinnen = List<dynamic>.from(basis['allePlayerinnen'] as List? ?? []);
+    }) {
+  final allePlayerinnen =
+  List<dynamic>.from(basis['allePlayerinnen'] as List? ?? []);
   final spielarten = List<dynamic>.from(basis['spielarten'] as List? ?? []);
   final tische = List<dynamic>.from(basis['tische'] as List? ?? []);
 
@@ -907,17 +954,11 @@ Map<String, dynamic> zusammenfuehrenJsonDokumente(
     if (spielartIds.add(id)) spielarten.add(s);
   }
 
-  final tischIds =
-  tische.map((t) => (t as Map<String, dynamic>)['id'] as String).toSet();
-  for (final t in (zusatz['tische'] as List? ?? [])) {
-    final id = (t as Map<String, dynamic>)['id'] as String;
-    if (tischIds.add(id)) tische.add(t);
-  }
-
   for (final t in (zusatz['tische'] as List? ?? [])) {
     final tMap = Map<String, dynamic>.from(t as Map<String, dynamic>);
     final id = tMap['id'] as String;
-    final existIndex = tische.indexWhere((b) => (b as Map<String, dynamic>)['id'] == id);
+    final existIndex =
+    tische.indexWhere((b) => (b as Map<String, dynamic>)['id'] == id);
 
     if (existIndex == -1) {
       tische.add(tMap);
@@ -926,9 +967,13 @@ Map<String, dynamic> zusammenfuehrenJsonDokumente(
       if (modus == 'overwrite') {
         tische[existIndex] = tMap;
       } else {
-        final basisTischMap = Map<String, dynamic>.from(tische[existIndex] as Map<String, dynamic>);
-        final basisRunden = List<dynamic>.from(basisTischMap['runden'] as List? ?? []);
-        final basisRundenIds = basisRunden.map((r) => (r as Map<String, dynamic>)['id'] as String).toSet();
+        final basisTischMap =
+        Map<String, dynamic>.from(tische[existIndex] as Map<String, dynamic>);
+        final basisRunden =
+        List<dynamic>.from(basisTischMap['runden'] as List? ?? []);
+        final basisRundenIds = basisRunden
+            .map((r) => (r as Map<String, dynamic>)['id'] as String)
+            .toSet();
 
         final zusatzRunden = List<dynamic>.from(tMap['runden'] as List? ?? []);
         for (final r in zusatzRunden) {
@@ -944,10 +989,13 @@ Map<String, dynamic> zusammenfuehrenJsonDokumente(
         });
         basisTischMap['runden'] = basisRunden;
 
-        if (tMap['status'] == 'beendet' || basisTischMap['status'] == 'beendet') {
+        if (tMap['status'] == 'beendet' ||
+            basisTischMap['status'] == 'beendet') {
           basisTischMap['status'] = 'beendet';
-          basisTischMap['beendetAm'] ??= tMap['beendetAm'] ?? DateTime.now().toIso8601String();
+          basisTischMap['beendetAm'] ??=
+              tMap['beendetAm'] ?? DateTime.now().toIso8601String();
         }
+        basisTischMap['aktualisiertAm'] = DateTime.now().toIso8601String();
 
         tische[existIndex] = basisTischMap;
       }

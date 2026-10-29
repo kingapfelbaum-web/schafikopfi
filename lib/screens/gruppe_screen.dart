@@ -25,11 +25,25 @@ class _GruppeScreenState extends State<GruppeScreen> {
   Future<void> _beitreten(SyncService sync) async {
     final code = _codeController.text.trim();
     if (code.isEmpty) return;
+    final name = _nameController.text.trim();
     await sync.gruppeBeitreten(code, anzeigename: _nameController.text);
+
+    final joinedGruppe = sync.gruppen.firstWhere(
+          (g) => g.id == code,
+      orElse: () => Gruppe(id: code, name: name.isEmpty ? null : name),
+    );
+
     _codeController.clear();
     _nameController.clear();
     if (!mounted) return;
     FocusScope.of(context).unfocus();
+
+    // Direkt zur Gruppen-Synchronisation navigieren
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SyncAuswahlScreen(gruppe: joinedGruppe),
+      ),
+    );
   }
 
   Future<void> _verlassenBestaetigen(SyncService sync, Gruppe gruppe) async {
@@ -38,8 +52,7 @@ class _GruppeScreenState extends State<GruppeScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Gruppe verlassen?'),
         content: Text(
-            'Du verlässt "${gruppe.anzeigename}". Deine lokalen Daten bleiben erhalten, '
-                'werden aber nicht mehr mit dieser Gruppe synchronisiert.'),
+            'Du verlässt "${gruppe.anzeigename}". Deine lokalen Daten bleiben erhalten.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),

@@ -8,6 +8,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'spiel_service.dart';
 import '../models/tisch.dart';
 
+enum TischSyncStatus {
+  neuLokal,     // Existiert nur lokal -> Hochladen
+  neuRemote,    // Existiert nur in Cloud -> Herunterladen
+  identisch,    // Zeitstempel gleich -> Keine Aktion
+  lokalNeuer,   // Lokaler Stand ist neuer -> Im Upload-Tab anbieten
+  remoteNeuer,  // Cloud-Stand ist neuer -> Im Download-Tab anbieten
+}
+
 /// Info-Objekt für einen auf dem Server vorhandenen, lokal noch NICHT
 /// vorhandenen Tisch (zur Anzeige in der Download-Auswahl).
 class RemoteTischInfo {
@@ -103,6 +111,9 @@ class SyncService extends ChangeNotifier {
 
     final name = anzeigename?.trim();
     _gruppen.add(Gruppe(id: id, name: (name == null || name.isEmpty) ? null : name));
+    try {
+      await aktivitaetVermerken(Gruppe(id: id));
+    } catch (_) {}
     await _gruppenSpeichern();
     notifyListeners();
   }
@@ -115,10 +126,53 @@ class SyncService extends ChangeNotifier {
 
   /// Lädt den kompletten Remote-Datensatz einer bestimmten Gruppe herunter.
   Future<Map<String, dynamic>?> remoteDatenAbrufen(Gruppe gruppe) async {
+    try {
+      await aktivitaetVermerken(gruppe);
+    } catch (_) {}
     final snapshot = await _gruppenCollection.doc(gruppe.id).get();
     if (!snapshot.exists || snapshot.data()?['daten'] is! String) return null;
     return jsonDecode(snapshot.data()!['daten'] as String)
     as Map<String, dynamic>;
+  }
+
+  TischSyncStatus vergleicheTische(
+      Tisch lokalerTisch, Map<String, dynamic> remoteTischJson) {
+    DateTime? remoteAktualisiert;
+    final remoteStr = remoteTischJson['aktualisiertAm'] as String?;
+    if (remoteStr != null) {
+      remoteAktualisiert = DateTime.tryParse(remoteStr);
+    }
+
+    remoteAktualisiert ??= DateTime.tryParse(
+        remoteTischJson['beendetAm'] as String? ?? '') ??
+        DateTime.tryParse(remoteTischJson['erstelltAm'] as String? ?? '');
+
+    if (remoteAktualisiert == null) {
+      return TischSyncStatus.lokalNeuer;
+    }
+
+    final lokalIso = lokalerTisch.aktualisiertAm.toIso8601String();
+    final remoteIso = remoteAktualisiert.toIso8601String();
+
+    final diffMs = lokalerTisch.aktualisiertAm
+        .difference(remoteAktualisiert)
+        .inMilliseconds
+        .abs();
+    if (diffMs < 1000 || lokalIso == remoteIso || lokalerTisch.aktualisiertAm.isAtSameMomentAs(remoteAktualisiert)) {
+      return TischSyncStatus.identisch;
+    }
+
+    if (lokalerTisch.aktualisiertAm.isAfter(remoteAktualisiert)) {
+      return TischSyncStatus.lokalNeuer;
+    } else {
+      return TischSyncStatus.remoteNeuer;
+    }
+  }
+
+  bool tischUnterscheidetSich(
+      Tisch lokalerTisch, Map<String, dynamic> remoteTischJson) {
+    return vergleicheTische(lokalerTisch, remoteTischJson) !=
+        TischSyncStatus.identisch;
   }
 
   List<RemoteTischInfo> neueRemoteTische(Map<String, dynamic> remoteJson) {
@@ -136,19 +190,20 @@ class SyncService extends ChangeNotifier {
 
       bool istGeaendert = false;
       if (lokalerTisch != null) {
-        istGeaendert = _tischUnterscheidetSich(lokalerTisch, tischJson);
-        if (!istGeaendert) continue; // Identischer Stand -> nicht erneut herunterladen
+        final status = vergleicheTische(lokalerTisch, tischJson);
+        if (status != TischSyncStatus.remoteNeuer) continue; // Identischer Stand -> nicht erneut herunterladen
+        istGeaendert = true;
       }
 
       final spielerIds =
-      List<String>.from(tischJson['spielerIds'] as List? ?? []);
+          List<String>.from(tischJson['spielerIds'] as List? ?? []);
       ergebnis.add(RemoteTischInfo(
         id: id,
         erstelltAm:
-        DateTime.tryParse(tischJson['erstelltAm'] as String? ?? '') ??
-            DateTime.now(),
+            DateTime.tryParse(tischJson['erstelltAm'] as String? ?? '') ??
+                DateTime.now(),
         spielerNamen:
-        spielerIds.map((sid) => spielerNamenById[sid] ?? '?').toList(),
+            spielerIds.map((sid) => spielerNamenById[sid] ?? '?').toList(),
         anzahlRunden: (tischJson['runden'] as List? ?? []).length,
         istBeendet: tischJson['status'] == 'beendet',
         istGeaendert: istGeaendert,
@@ -158,26 +213,6 @@ class SyncService extends ChangeNotifier {
     return ergebnis;
   }
 
-  bool _tischUnterscheidetSich(Tisch lokalerTisch, Map<String, dynamic> remoteTischJson) {
-    final remoteRunden = (remoteTischJson['runden'] as List? ?? []);
-    if (lokalerTisch.runden.length != remoteRunden.length) return true;
-
-    final remoteStatus = remoteTischJson['status'] as String?;
-    if (remoteStatus != null) {
-      final bereinigt = remoteStatus.contains('.') ? remoteStatus.split('.').last : remoteStatus;
-      if (bereinigt.toLowerCase() != lokalerTisch.status.name.toLowerCase()) return true;
-    }
-
-    final lokaleRundenIds = lokalerTisch.runden.map((r) => r.id).toSet();
-    for (final r in remoteRunden) {
-      final rJson = r as Map<String, dynamic>;
-      final rId = rJson['id'] as String?;
-      if (rId != null && !lokaleRundenIds.contains(rId)) return true;
-    }
-
-    return false;
-  }
-
   Future<int> herunterladenAusgewaehlt(
       Gruppe gruppe,
       Map<String, dynamic> remoteJson,
@@ -185,6 +220,9 @@ class SyncService extends ChangeNotifier {
       Map<String, String> entscheidungen, {
         Map<String, String> tischEntscheidungen = const {},
       }) async {
+    try {
+      await aktivitaetVermerken(gruppe);
+    } catch (_) {}
     final anzahl = spielService.serverDatenEinspielenAusgewaehlt(
       remoteJson,
       tischIds: tischIds,
@@ -202,6 +240,9 @@ class SyncService extends ChangeNotifier {
       Set<String> tischIds, {
         Map<String, String> tischEntscheidungen = const {},
       }) async {
+    try {
+      await aktivitaetVermerken(gruppe);
+    } catch (_) {}
     if (tischIds.isEmpty) return;
     istAmSynchronisieren = true;
     letzterFehler = null;
@@ -231,6 +272,11 @@ class SyncService extends ChangeNotifier {
         'aktualisiertAm': DateTime.now().toIso8601String(),
         if (gruppe.name != null) 'name': gruppe.name,
       });
+
+      spielService.lokaleTischeAusMergedAktualisieren(
+        zusammengefuehrt,
+        tischIds: tischIds,
+      );
       letzterSync = DateTime.now();
     } catch (e) {
       letzterFehler = e.toString();
@@ -239,5 +285,16 @@ class SyncService extends ChangeNotifier {
       istAmSynchronisieren = false;
       notifyListeners();
     }
+  }
+
+  /// Verschiebt das automatische Löschen der Gruppe auf heute + 5 Jahre.
+  Future<void> aktivitaetVermerken(Gruppe g) async {
+    await FirebaseFirestore.instance
+        .collection('gruppen')
+        .doc(g.id)
+        .set({
+      'loeschenAm': Timestamp.fromDate(
+          DateTime.now().add(const Duration(days: 5 * 365))),
+    }, SetOptions(merge: true));
   }
 }

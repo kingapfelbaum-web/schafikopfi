@@ -17,6 +17,7 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
   Set<String> _uploadAuswahl = {};
   Set<String> _downloadAuswahl = {};
   Set<String> _bereitsSynchronisierteIds = {};
+  Set<String> _abweichendeIds = {};
 
   Map<String, dynamic>? _remoteJson;
   List<RemoteTischInfo> _remoteNeueTische = [];
@@ -36,18 +37,17 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
     if (_remoteJson == null) return {};
     final remoteTischeMap = <String, Map<String, dynamic>>{
       for (final t in (_remoteJson!['tische'] as List? ?? []))
-        (t as Map<String, dynamic>)['id'] as String: t,
+        (t as Map<String, dynamic>)['id'] as String: t as Map<String, dynamic>,
     };
 
+    final sync = context.read<SyncService>();
     final entscheidungen = <String, String>{};
+
     for (final tisch in ausgewaehlteTische) {
       final remoteTischJson = remoteTischeMap[tisch.id];
       if (remoteTischJson == null) continue;
 
-      // Abweichung prüfen
-      final remoteRunden = (remoteTischJson['runden'] as List? ?? []);
-      final differ = tisch.runden.length != remoteRunden.length ||
-          remoteTischJson['status'] != tisch.status.name;
+      final differ = sync.tischUnterscheidetSich(tisch, remoteTischJson);
       if (!differ) continue;
 
       final datumStr =
@@ -55,13 +55,14 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
       final spielerStr = tisch.spieler.map((s) => s.name).join(', ');
 
       final titel = isUpload
-          ? 'Spiel unterscheidet sich in der Cloud'
-          : 'Lokales Spiel unterscheidet sich';
+          ? 'Tisch unterscheidet sich in der Cloud'
+          : 'Lokaler Tisch unterscheidet sich';
       final inhalt = isUpload
-          ? 'Das Spiel vom $datumStr ($spielerStr) existiert bereits in der Cloud, unterscheidet sich aber von deiner lokalen Version.'
-          : 'Das Spiel vom $datumStr ($spielerStr) existiert bereits auf deinem Gerät, unterscheidet sich aber von der Cloud-Version.';
+          ? 'Der Tisch vom $datumStr ($spielerStr) existiert bereits in der Cloud, unterscheidet sich aber von deiner lokalen Version.'
+          : 'Der Tisch vom $datumStr ($spielerStr) existiert bereits auf deinem Gerät, unterscheidet sich aber von der Cloud-Version.';
 
-      final overwriteBtnText = isUpload ? 'Cloud überschreiben' : 'Lokal überschreiben';
+      final overwriteBtnText =
+      isUpload ? 'Cloud überschreiben' : 'Lokal überschreiben';
 
       final ergebnis = await showDialog<String>(
         context: context,
@@ -98,17 +99,37 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
       _remoteFehler = null;
     });
     final sync = context.read<SyncService>();
+    final spielService = context.read<SpielService>();
     try {
       final json = await sync.remoteDatenAbrufen(widget.gruppe);
       setState(() {
         _remoteJson = json;
         _remoteNeueTische = json == null ? [] : sync.neueRemoteTische(json);
         _downloadAuswahl = _remoteNeueTische.map((t) => t.id).toSet();
-        _bereitsSynchronisierteIds = json == null
-            ? {}
-            : (json['tische'] as List? ?? [])
-            .map((t) => (t as Map<String, dynamic>)['id'] as String)
-            .toSet();
+
+        _bereitsSynchronisierteIds = {};
+        _abweichendeIds = {};
+
+        if (json != null) {
+          final remoteTischeMap = <String, Map<String, dynamic>>{
+            for (final t in (json['tische'] as List? ?? []))
+              (t as Map<String, dynamic>)['id'] as String:
+              t as Map<String, dynamic>,
+          };
+
+          for (final lokalerTisch in spielService.alleTische) {
+            final remoteTisch = remoteTischeMap[lokalerTisch.id];
+            if (remoteTisch != null) {
+              final status = sync.vergleicheTische(lokalerTisch, remoteTisch);
+              if (status == TischSyncStatus.lokalNeuer) {
+                _abweichendeIds.add(lokalerTisch.id);
+              } else {
+                _bereitsSynchronisierteIds.add(lokalerTisch.id);
+              }
+            }
+          }
+        }
+
         _uploadAuswahl.removeWhere(_bereitsSynchronisierteIds.contains);
       });
     } catch (e) {
@@ -120,15 +141,23 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
 
   Future<void> _hochladen(SyncService sync) async {
     if (_uploadAuswahl.isEmpty) return;
+
     final spielService = context.read<SpielService>();
     final tischeFuerUpload = spielService.alleTische
         .where((t) => _uploadAuswahl.contains(t.id))
         .toList();
 
-    final tischEntscheidungen = await _tischKonfliktePruefen(tischeFuerUpload, true);
-    if (tischEntscheidungen == null) return; // Vom Nutzer abgebrochen
+    final tischEntscheidungen =
+    await _tischKonfliktePruefen(tischeFuerUpload, true);
+    if (tischEntscheidungen == null) return;
+
     final hochgeladeneIds = Set<String>.of(_uploadAuswahl);
-    await sync.hochladenAusgewaehlt(widget.gruppe, _uploadAuswahl, tischEntscheidungen: tischEntscheidungen);
+    await sync.hochladenAusgewaehlt(
+      widget.gruppe,
+      _uploadAuswahl,
+      tischEntscheidungen: tischEntscheidungen,
+    );
+
     if (!mounted) return;
     if (sync.letzterFehler != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -136,26 +165,24 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${hochgeladeneIds.length} Spiel(e) hochgeladen')),
+        SnackBar(
+            content: Text('${hochgeladeneIds.length} Tisch(e) hochgeladen')),
       );
-      setState(() {
-        _uploadAuswahl = {};
-        _bereitsSynchronisierteIds.addAll(hochgeladeneIds);
-      });
+      await _remoteLaden();
     }
   }
 
-  Future<void> _herunterladen(SyncService sync, SpielService spielService) async {
+  Future<void> _herunterladen(
+      SyncService sync, SpielService spielService) async {
     if (_downloadAuswahl.isEmpty || _remoteJson == null) return;
 
-    // 1. Abweichungen bei bereits lokal vorhandenen Spielen prüfen
     final tischeFuerDownload = spielService.alleTische
         .where((t) => _downloadAuswahl.contains(t.id))
         .toList();
 
     final tischEntscheidungen =
     await _tischKonfliktePruefen(tischeFuerDownload, false);
-    if (tischEntscheidungen == null) return; // Vom Nutzer abgebrochen
+    if (tischEntscheidungen == null) return;
 
     final konflikte = spielService.remoteKonflikteErmitteln(
       _remoteJson!,
@@ -200,9 +227,10 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
       spielerEntscheidungen,
       tischEntscheidungen: tischEntscheidungen,
     );
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$anzahl Spiel(e) heruntergeladen')),
+      SnackBar(content: Text('$anzahl Tisch(e) heruntergeladen')),
     );
     await _remoteLaden();
   }
@@ -233,8 +261,8 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     _ladeRemote
-                        ? 'Prüfe, welche Spiele bereits synchronisiert sind …'
-                        : 'Nur beendete Spiele können hochgeladen werden. Wähle aus, welche in die Gruppe übertragen werden sollen.',
+                        ? 'Prüfe, welche Tische bereits synchronisiert sind …'
+                        : 'Nur beendete Tische können hochgeladen werden. Wähle aus, welche in die Gruppe übertragen werden sollen.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -245,32 +273,33 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
                     final beendeteTische = lokaleTische
                         .where((t) => t.status == TischStatus.beendet)
                         .toList();
-                    final nochNichtSynchronisiert = beendeteTische
-                        .where((t) =>
-                    !_bereitsSynchronisierteIds.contains(t.id))
+                    final hochladbareTische = beendeteTische
+                        .where((t) => !_bereitsSynchronisierteIds
+                        .contains(t.id))
                         .toList();
                     final bereitsSynchronisiert = beendeteTische
-                        .where((t) =>
-                        _bereitsSynchronisierteIds.contains(t.id))
+                        .where((t) => _bereitsSynchronisierteIds
+                        .contains(t.id))
                         .toList();
 
                     if (beendeteTische.isEmpty) {
                       return const Center(
-                          child: Text('Keine beendeten Spiele vorhanden. Nur beendete Spiele können hochgeladen werden.'));
+                          child: Text(
+                              'Keine beendeten Tische vorhanden. Nur beendete Tische können hochgeladen werden.'));
                     }
 
                     return ListView(
                       children: [
-                        if (nochNichtSynchronisiert.isEmpty)
+                        if (hochladbareTische.isEmpty)
                           const Padding(
                             padding: EdgeInsets.all(16),
                             child: Text(
-                                'Alle lokalen Spiele sind bereits synchronisiert'),
+                                'Alle lokalen Tische sind bereits synchronisiert'),
                           )
                         else
-                          ...nochNichtSynchronisiert.map((tisch) {
-                            final istAktiv =
-                                tisch.status == TischStatus.aktiv;
+                          ...hochladbareTische.map((tisch) {
+                            final istAbweichend =
+                            _abweichendeIds.contains(tisch.id);
                             return CheckboxListTile(
                               value: _uploadAuswahl.contains(tisch.id),
                               title: Text(tisch.spieler
@@ -278,8 +307,16 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
                                   .join(', ')),
                               subtitle: Text(
                                 '${tisch.erstelltAm.day.toString().padLeft(2, '0')}.${tisch.erstelltAm.month.toString().padLeft(2, '0')}.${tisch.erstelltAm.year} · '
-                                    '${tisch.runden.length} Runden · ${istAktiv ? 'aktiv' : 'beendet'}',
+                                    '${tisch.runden.length} Spiele${istAbweichend ? ' · Lokal geändert (neuer als Cloud)' : ''}',
+                                style: TextStyle(
+                                    color: istAbweichend
+                                        ? Colors.orange.shade800
+                                        : null),
                               ),
+                              secondary: istAbweichend
+                                  ? const Icon(Icons.sync_problem,
+                                  color: Colors.orange)
+                                  : null,
                               onChanged: (checked) {
                                 setState(() {
                                   if (checked == true) {
@@ -315,7 +352,7 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
                                   color: Colors.grey.shade500),
                             ),
                             subtitle: Text(
-                              '${tisch.erstelltAm.day.toString().padLeft(2, '0')}.${tisch.erstelltAm.month.toString().padLeft(2, '0')}.${tisch.erstelltAm.year} · ${tisch.runden.length} Runden',
+                              '${tisch.erstelltAm.day.toString().padLeft(2, '0')}.${tisch.erstelltAm.month.toString().padLeft(2, '0')}.${tisch.erstelltAm.year} · ${tisch.runden.length} Spiele',
                             ),
                           )),
                         ],
@@ -353,7 +390,7 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    'Diese Spiele sind in der Gruppe vorhanden und lokal noch nicht bekannt.',
+                    'Diese Tische sind in der Gruppe vorhanden und lokal noch nicht bekannt oder in der Cloud neuer.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -365,7 +402,7 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
                       : _remoteNeueTische.isEmpty
                       ? const Center(
                       child: Text(
-                          'Keine neuen Spiele in der Gruppe'))
+                          'Keine neuen oder geänderten Tische in der Gruppe'))
                       : ListView.builder(
                     itemCount: _remoteNeueTische.length,
                     itemBuilder: (context, index) {
@@ -375,8 +412,16 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
                         title: Text(info.spielerNamen.join(', ')),
                         subtitle: Text(
                           '${info.erstelltAm.day.toString().padLeft(2, '0')}.${info.erstelltAm.month.toString().padLeft(2, '0')}.${info.erstelltAm.year} · '
-                              '${info.anzahlRunden} Runden · ${info.istBeendet ? 'beendet' : 'aktiv'}',
+                              '${info.anzahlRunden} Spiele${info.istGeaendert ? ' · In Cloud geändert (neuer als lokal)' : ''}',
+                          style: TextStyle(
+                              color: info.istGeaendert
+                                  ? Colors.orange.shade800
+                                  : null),
                         ),
+                        secondary: info.istGeaendert
+                            ? const Icon(Icons.sync_problem,
+                            color: Colors.orange)
+                            : null,
                         onChanged: (checked) {
                           setState(() {
                             if (checked == true) {
@@ -410,8 +455,8 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2, color: Colors.white))
                                 : const Icon(Icons.download),
-                            label:
-                            Text('Herunterladen (${_downloadAuswahl.length})'),
+                            label: Text(
+                                'Herunterladen (${_downloadAuswahl.length})'),
                             onPressed: _downloadAuswahl.isEmpty ||
                                 sync.istAmSynchronisieren
                                 ? null

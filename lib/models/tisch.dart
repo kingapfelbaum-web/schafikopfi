@@ -11,6 +11,7 @@ class Tisch {
   final String id;
   final DateTime erstelltAm;
   DateTime? beendetAm;
+  DateTime aktualisiertAm;
   TischStatus status;
   Tarif tarif;
 
@@ -27,6 +28,7 @@ class Tisch {
     required this.id,
     required this.erstelltAm,
     required this.spieler,
+    DateTime? aktualisiertAm,
     Tarif? tarif,
     List<Spielart>? spielarten,
     List<Runde>? runden,
@@ -34,7 +36,8 @@ class Tisch {
     this.solorundeAktiv = false,
     this.status = TischStatus.aktiv,
     this.beendetAm,
-  })  : runden = runden ?? [],
+  })  : aktualisiertAm = aktualisiertAm ?? beendetAm ?? erstelltAm,
+        runden = runden ?? [],
         tarif = tarif ?? Tarif(),
         spielarten = spielarten ?? standardSpielarten(),
         inaktiveSpielerIds = inaktiveSpielerIds ?? {};
@@ -53,6 +56,7 @@ class Tisch {
   void spielerHinzufuegen(Spieler neuer) {
     if (!spieler.contains(neuer)) {
       spieler.add(neuer);
+      aktualisiertAm = DateTime.now();
     }
   }
 
@@ -61,34 +65,46 @@ class Tisch {
 
   bool spielerEntfernen(Spieler s) {
     if (spielerHatRunden(s)) return false;
-    return spieler.remove(s);
+    final entfernt = spieler.remove(s);
+    if (entfernt) aktualisiertAm = DateTime.now();
+    return entfernt;
   }
 
   bool spielerIstAktiv(Spieler s) => !inaktiveSpielerIds.contains(s.id);
 
-  void spielerAufPause(Spieler s) => inaktiveSpielerIds.add(s.id);
+  void spielerAufPause(Spieler s) {
+    inaktiveSpielerIds.add(s.id);
+    aktualisiertAm = DateTime.now();
+  }
 
-  void spielerReaktivieren(Spieler s) => inaktiveSpielerIds.remove(s.id);
+  void spielerReaktivieren(Spieler s) {
+    inaktiveSpielerIds.remove(s.id);
+    aktualisiertAm = DateTime.now();
+  }
 
   void spielerVerschieben(int oldIndex, int newIndex) {
     if (newIndex > oldIndex) newIndex -= 1;
     final s = spieler.removeAt(oldIndex);
     spieler.insert(newIndex, s);
+    aktualisiertAm = DateTime.now();
   }
 
   void beenden() {
     status = TischStatus.beendet;
     beendetAm==null ? beendetAm = DateTime.now() : null;
+    aktualisiertAm = DateTime.now();
   }
 
   void reaktivieren() {
     status = TischStatus.aktiv;
+    aktualisiertAm = DateTime.now();
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'erstelltAm': erstelltAm.toIso8601String(),
         'beendetAm': beendetAm?.toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toIso8601String(),
         'status': status.name,
         'tarif': tarif.toJson(),
         'spielerIds': spieler.map((s) => s.id).toList(),
@@ -161,12 +177,21 @@ class Tisch {
       tarif = Tarif();
     }
 
+    final beendetAmStr = json['beendetAm'] as String?;
+    final beendetAm =
+    beendetAmStr != null ? DateTime.tryParse(beendetAmStr) : null;
+
+    // NEU: aktualisiertAm einlesen
+    final aktualisiertAmStr = json['aktualisiertAm'] as String?;
+    final aktualisiertAm = aktualisiertAmStr != null
+        ? DateTime.tryParse(aktualisiertAmStr)
+        : null;
+
     return Tisch(
       id: json['id'] as String,
       erstelltAm: DateTime.parse(json['erstelltAm'] as String),
-      beendetAm: json['beendetAm'] == null
-          ? null
-          : DateTime.parse(json['beendetAm'] as String),
+      beendetAm: beendetAm,
+      aktualisiertAm: aktualisiertAm,
       status: status,
       tarif: tarif,
       spieler: spieler,
