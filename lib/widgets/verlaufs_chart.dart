@@ -41,7 +41,7 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
     if (widget.punkte.length < 2) {
       return const SizedBox(
         height: 160,
-        child: Center(child: Text('Noch zu wenige Runden für einen Verlauf')),
+        child: Center(child: Text('Noch zu wenige Spiele für einen Verlauf')),
       );
     }
 
@@ -177,7 +177,7 @@ class _VerlaufsChartState extends State<VerlaufsChart> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Runde ${ausgewaehlterPunkt.rundenNummer}',
+                      'Spiel ${ausgewaehlterPunkt.rundenNummer}',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),

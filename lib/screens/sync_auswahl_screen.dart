@@ -29,6 +29,69 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
     _remoteLaden();
   }
 
+  Future<Map<String, String>?> _tischKonfliktePruefen(
+      List<Tisch> ausgewaehlteTische,
+      bool isUpload,
+      ) async {
+    if (_remoteJson == null) return {};
+    final remoteTischeMap = <String, Map<String, dynamic>>{
+      for (final t in (_remoteJson!['tische'] as List? ?? []))
+        (t as Map<String, dynamic>)['id'] as String: t,
+    };
+
+    final entscheidungen = <String, String>{};
+    for (final tisch in ausgewaehlteTische) {
+      final remoteTischJson = remoteTischeMap[tisch.id];
+      if (remoteTischJson == null) continue;
+
+      // Abweichung prüfen
+      final remoteRunden = (remoteTischJson['runden'] as List? ?? []);
+      final differ = tisch.runden.length != remoteRunden.length ||
+          remoteTischJson['status'] != tisch.status.name;
+      if (!differ) continue;
+
+      final datumStr =
+          '${tisch.erstelltAm.day.toString().padLeft(2, '0')}.${tisch.erstelltAm.month.toString().padLeft(2, '0')}.${tisch.erstelltAm.year}';
+      final spielerStr = tisch.spieler.map((s) => s.name).join(', ');
+
+      final titel = isUpload
+          ? 'Spiel unterscheidet sich in der Cloud'
+          : 'Lokales Spiel unterscheidet sich';
+      final inhalt = isUpload
+          ? 'Das Spiel vom $datumStr ($spielerStr) existiert bereits in der Cloud, unterscheidet sich aber von deiner lokalen Version.'
+          : 'Das Spiel vom $datumStr ($spielerStr) existiert bereits auf deinem Gerät, unterscheidet sich aber von der Cloud-Version.';
+
+      final overwriteBtnText = isUpload ? 'Cloud überschreiben' : 'Lokal überschreiben';
+
+      final ergebnis = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: Text(titel),
+          content: Text(inhalt),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop('cancel'),
+              child: const Text('Abbrechen'),
+            ),
+            OutlinedButton(
+              onPressed: () => Navigator.of(ctx).pop('overwrite'),
+              child: Text(overwriteBtnText),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop('merge'),
+              child: const Text('Zusammenführen'),
+            ),
+          ],
+        ),
+      );
+
+      if (ergebnis == null || ergebnis == 'cancel') return null;
+      entscheidungen[tisch.id] = ergebnis;
+    }
+    return entscheidungen;
+  }
+
   Future<void> _remoteLaden() async {
     setState(() {
       _ladeRemote = true;
@@ -57,8 +120,15 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
 
   Future<void> _hochladen(SyncService sync) async {
     if (_uploadAuswahl.isEmpty) return;
+    final spielService = context.read<SpielService>();
+    final tischeFuerUpload = spielService.alleTische
+        .where((t) => _uploadAuswahl.contains(t.id))
+        .toList();
+
+    final tischEntscheidungen = await _tischKonfliktePruefen(tischeFuerUpload, true);
+    if (tischEntscheidungen == null) return; // Vom Nutzer abgebrochen
     final hochgeladeneIds = Set<String>.of(_uploadAuswahl);
-    await sync.hochladenAusgewaehlt(widget.gruppe, _uploadAuswahl);
+    await sync.hochladenAusgewaehlt(widget.gruppe, _uploadAuswahl, tischEntscheidungen: tischEntscheidungen);
     if (!mounted) return;
     if (sync.letzterFehler != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,12 +148,21 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
   Future<void> _herunterladen(SyncService sync, SpielService spielService) async {
     if (_downloadAuswahl.isEmpty || _remoteJson == null) return;
 
+    // 1. Abweichungen bei bereits lokal vorhandenen Spielen prüfen
+    final tischeFuerDownload = spielService.alleTische
+        .where((t) => _downloadAuswahl.contains(t.id))
+        .toList();
+
+    final tischEntscheidungen =
+    await _tischKonfliktePruefen(tischeFuerDownload, false);
+    if (tischEntscheidungen == null) return; // Vom Nutzer abgebrochen
+
     final konflikte = spielService.remoteKonflikteErmitteln(
       _remoteJson!,
       tischIds: _downloadAuswahl,
     );
 
-    final entscheidungen = <String, String>{};
+    final spielerEntscheidungen = <String, String>{};
     for (final konflikt in konflikte) {
       if (!mounted) return;
       final ergebnis = await showDialog<String>(
@@ -111,14 +190,15 @@ class _SyncAuswahlScreenState extends State<SyncAuswahlScreen> {
         ),
       );
       if (ergebnis == null) return;
-      entscheidungen[konflikt.importierteId] = ergebnis;
+      spielerEntscheidungen[konflikt.importierteId] = ergebnis;
     }
 
     final anzahl = await sync.herunterladenAusgewaehlt(
       widget.gruppe,
       _remoteJson!,
       _downloadAuswahl,
-      entscheidungen,
+      spielerEntscheidungen,
+      tischEntscheidungen: tischEntscheidungen,
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

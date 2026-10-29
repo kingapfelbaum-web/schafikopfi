@@ -17,20 +17,25 @@ class SpielerVerwaltenScreen extends StatelessWidget {
       body: spieler.isEmpty
           ? const Center(child: Text('Noch keine Spieler angelegt'))
           : ListView.builder(
-        padding: const EdgeInsets.all(8),
+        padding: EdgeInsets.only(
+          left: 8,
+          right: 8,
+          top: 8,
+          bottom: MediaQuery.of(context).padding.bottom + 80,
+        ),
         itemCount: spieler.length,
         itemBuilder: (context, index) {
           final s = spieler[index];
           final kannGeloeschtWerden =
-          service.spielerKannGeloeschtWerden(s);
+           service.spielerKannGeloeschtWerden(s);
           return Card(
             child: ListTile(
               title: Text(s.name),
               subtitle: kannGeloeschtWerden
                   ? null
-                  : const Text(
+                  : Text(
                 'Nimmt an einem aktiven Spiel teil',
-                style: TextStyle(color: Colors.orange),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline),
@@ -41,6 +46,63 @@ class SpielerVerwaltenScreen extends StatelessWidget {
             ),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+          icon: const Icon(Icons.person_add),
+          onPressed: () => spielerHinzufuegenDialog(context, service),
+          label: const Text('Spieler hinzufügen')
+      ),
+    );
+  }
+
+  void spielerHinzufuegenDialog(
+      BuildContext context, SpielService service) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Neuer Spieler'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller,
+                maxLength: 20,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              if (controller.text.length >= 20)
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text( 'Maximale Länge von 20 Zeichen erreicht',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: controller.text.trim().isEmpty
+                  ? null
+                  : () {
+                final name = controller.text.trim();
+                service.spielerAnlegen(name);
+                Navigator.of(ctx).pop();
+                },
+              child: const Text('Hinzufügen'),
+            ),
+          ],
+        ),
       ),
     );
   }

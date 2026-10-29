@@ -200,7 +200,7 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
                         ),
                         TextButton.icon(
                           icon: const Icon(Icons.tune),
-                          label: const Text('Spiele bearbeiten'),
+                          label: const Text('Spielarten bearbeiten'),
                           onPressed: () =>
                               _spieleBearbeitenDialog(context, service),
                         ),
@@ -251,7 +251,7 @@ class _TischDetailScreenState extends State<TischDetailScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Runden (${tisch.runden.length})',
+                child: Text('Spiele (${tisch.runden.length})',
                     style: Theme.of(context).textTheme.labelLarge),
               ),
             ),

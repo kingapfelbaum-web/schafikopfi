@@ -48,7 +48,7 @@ class _TischVerlaufsChartState extends State<TischVerlaufsChart> {
     if (widget.punkte.length < 2) {
       return const SizedBox(
         height: 200,
-        child: Center(child: Text('Noch zu wenige Runden für einen Verlauf')),
+        child: Center(child: Text('Noch zu wenige Spiele für einen Verlauf')),
       );
     }
 
@@ -197,7 +197,7 @@ class _TischVerlaufsChartState extends State<TischVerlaufsChart> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Runde ${ausgewaehlterPunkt.rundenNummer}: ${ausgewaehlterPunkt.runde.spielartName}${spielerPartei.isNotEmpty ? ' – $spielerPartei' : ''}',
+                                'Spiel ${ausgewaehlterPunkt.rundenNummer}: ${ausgewaehlterPunkt.runde.spielartName}${spielerPartei.isNotEmpty ? ' – $spielerPartei' : ''}',
                                 style: const TextStyle(fontWeight: FontWeight.bold),
                                 maxLines: 1, overflow: TextOverflow.ellipsis,
                               ),

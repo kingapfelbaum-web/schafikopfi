@@ -249,6 +249,7 @@ class SpielService extends ChangeNotifier {
       Map<String, dynamic> json, {
         required Set<String> tischIds,
         required Map<String, String> spielerEntscheidungen,
+        Map<String, String> tischEntscheidungen = const {},
         String? gruppenName,
       }) {
     final idUmschreibungSpieler = <String, String>{};
@@ -308,7 +309,6 @@ class SpielService extends ChangeNotifier {
       final tischJson = Map<String, dynamic>.from(t as Map<String, dynamic>);
       final tischId = tischJson['id'] as String;
       if (!tischIds.contains(tischId)) continue;
-      if (_tische.any((tt) => tt.id == tischId)) continue; // bereits vorhanden
 
       try {
         tischJson['spielerIds'] = List<String>.from(
@@ -350,6 +350,40 @@ class SpielService extends ChangeNotifier {
         );
         _tische.add(tisch);
         eingespielt += 1;
+        final neuerTisch = Tisch.fromJson(
+          tischJson,
+          allePlayerinnen: _allePlayerinnen,
+          alleSpielarten: _spielarten,
+        );
+
+        final lokalerIndex = _tische.indexWhere((tt) => tt.id == tischId);
+        if (lokalerIndex == -1) {
+          _tische.add(neuerTisch);
+          eingespielt += 1;
+        } else {
+          final modus = tischEntscheidungen[tischId] ?? 'merge';
+          if (modus == 'overwrite') {
+            _tische[lokalerIndex] = neuerTisch;
+            eingespielt += 1;
+          } else {
+            // 'merge': Fehlende Runden ergänzen & Status abgleichen
+            final lokalerTisch = _tische[lokalerIndex];
+            final vorhandeneRundenIds = lokalerTisch.runden.map((r) => r.id).toSet();
+
+            for (final remoteRunde in neuerTisch.runden) {
+              if (vorhandeneRundenIds.add(remoteRunde.id)) {
+                lokalerTisch.runden.add(remoteRunde);
+              }
+            }
+            lokalerTisch.runden.sort((a, b) => a.zeitpunkt.compareTo(b.zeitpunkt));
+
+            if (neuerTisch.status == TischStatus.beendet) {
+              lokalerTisch.status = TischStatus.beendet;
+              lokalerTisch.beendetAm ??= neuerTisch.beendetAm ?? DateTime.now();
+            }
+            eingespielt += 1;
+          }
+        }
       } catch (e) {
         debugPrint('Tisch beim selektiven Sync übersprungen: $e');
       }
@@ -850,9 +884,10 @@ class SpielerDetailStatistik {
 /// und Tische aus [zusatz] werden zu [basis] hinzugefügt, sofern ihre ID
 /// dort nicht schon vorhanden ist (kein Überschreiben bestehender Einträge).
 Map<String, dynamic> zusammenfuehrenJsonDokumente(
-    Map<String, dynamic> basis, Map<String, dynamic> zusatz) {
-  final allePlayerinnen =
-  List<dynamic>.from(basis['allePlayerinnen'] as List? ?? []);
+    Map<String, dynamic> basis, Map<String, dynamic> zusatz, {
+      Map<String, String> tischModi = const {},
+}) {
+  final allePlayerinnen = List<dynamic>.from(basis['allePlayerinnen'] as List? ?? []);
   final spielarten = List<dynamic>.from(basis['spielarten'] as List? ?? []);
   final tische = List<dynamic>.from(basis['tische'] as List? ?? []);
 
@@ -877,6 +912,46 @@ Map<String, dynamic> zusammenfuehrenJsonDokumente(
   for (final t in (zusatz['tische'] as List? ?? [])) {
     final id = (t as Map<String, dynamic>)['id'] as String;
     if (tischIds.add(id)) tische.add(t);
+  }
+
+  for (final t in (zusatz['tische'] as List? ?? [])) {
+    final tMap = Map<String, dynamic>.from(t as Map<String, dynamic>);
+    final id = tMap['id'] as String;
+    final existIndex = tische.indexWhere((b) => (b as Map<String, dynamic>)['id'] == id);
+
+    if (existIndex == -1) {
+      tische.add(tMap);
+    } else {
+      final modus = tischModi[id] ?? 'merge';
+      if (modus == 'overwrite') {
+        tische[existIndex] = tMap;
+      } else {
+        final basisTischMap = Map<String, dynamic>.from(tische[existIndex] as Map<String, dynamic>);
+        final basisRunden = List<dynamic>.from(basisTischMap['runden'] as List? ?? []);
+        final basisRundenIds = basisRunden.map((r) => (r as Map<String, dynamic>)['id'] as String).toSet();
+
+        final zusatzRunden = List<dynamic>.from(tMap['runden'] as List? ?? []);
+        for (final r in zusatzRunden) {
+          final rId = (r as Map<String, dynamic>)['id'] as String;
+          if (basisRundenIds.add(rId)) {
+            basisRunden.add(r);
+          }
+        }
+        basisRunden.sort((a, b) {
+          final zA = (a as Map<String, dynamic>)['zeitpunkt'] as String? ?? '';
+          final zB = (b as Map<String, dynamic>)['zeitpunkt'] as String? ?? '';
+          return zA.compareTo(zB);
+        });
+        basisTischMap['runden'] = basisRunden;
+
+        if (tMap['status'] == 'beendet' || basisTischMap['status'] == 'beendet') {
+          basisTischMap['status'] = 'beendet';
+          basisTischMap['beendetAm'] ??= tMap['beendetAm'] ?? DateTime.now().toIso8601String();
+        }
+
+        tische[existIndex] = basisTischMap;
+      }
+    }
   }
 
   return {

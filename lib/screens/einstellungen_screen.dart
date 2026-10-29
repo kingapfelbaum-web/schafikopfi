@@ -18,7 +18,6 @@ class _EinstellungenScreenState extends State<EinstellungenScreen> {
   late TextEditingController _sauspielController;
   late TextEditingController _soloController;
   late TextEditingController _aufpreisController;
-  late Set<String> _ausgewaehlteIds;
 
   @override
   void initState() {
@@ -31,7 +30,6 @@ class _EinstellungenScreenState extends State<EinstellungenScreen> {
         TextEditingController(text: tarif.soloPreis.toStringAsFixed(2));
     _aufpreisController =
         TextEditingController(text: tarif.aufpreis.toStringAsFixed(2));
-    _ausgewaehlteIds = Set.of(service.standardAusgewaehlteSpielartenIds);
   }
 
   @override
@@ -54,32 +52,19 @@ class _EinstellungenScreenState extends State<EinstellungenScreen> {
           double.tryParse(_aufpreisController.text.replaceAll(',', '.')) ??
               0.20,
     ));
-    service.standardAuswahlAendern(_ausgewaehlteIds);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Standard-Einstellungen gespeichert')),
+        const SnackBar(content: Text('Standard-Tarif gespeichert')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final service = context.watch<SpielService>();
 
     return Scaffold(
       appBar: AppBar(
           title: const Text('Einstellungen'),
-          actions: [
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-            ),
-            onPressed: _speichern,
-            child: const Text('Speichern'),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -122,19 +107,39 @@ class _EinstellungenScreenState extends State<EinstellungenScreen> {
                 border: OutlineInputBorder()),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
+          const SizedBox(height: 8),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            ),
+            onPressed: _speichern,
+            child: const Text('Speichern'),
+          ),
           const Divider(height: 40),
           Row(
             children: [
               Expanded(
-                child: Text(
-                  'Standardmäßig ausgewählte Spiele',
-                  style: Theme.of(context).textTheme.titleMedium,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Spielarten',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Verwalte verfügbare Spielarten und lege fest, welche beim Erstellen eines neuen Tisches vorausgewählt sind.',
+                      style: TextStyle(
+                          color: Colors.grey.shade600, fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 8),
               TextButton.icon(
                 icon: const Icon(Icons.tune),
-                label: const Text('Spiele bearbeiten'),
+                label: const Text('Bearbeiten'),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
                       builder: (_) => const SpieleBearbeitenScreen()),
@@ -142,31 +147,6 @@ class _EinstellungenScreenState extends State<EinstellungenScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          const Text(
-              'Diese Spielarten sind beim Erstellen eines neuen Tisches vorausgewählt.',
-              style: TextStyle(color: Colors.grey)),
-          if (service.spielarten.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text('Noch keine Spielarten im Katalog'),
-            )
-          else
-            ...service.spielarten.map((s) => CheckboxListTile(
-                  value: _ausgewaehlteIds.contains(s.id),
-                  title: Text(s.name),
-                  subtitle:
-                      Text(s.einzelspieler ? 'Solo' : 'Sauspiel'),
-                  onChanged: (checked) {
-                    setState(() {
-                      if (checked == true) {
-                        _ausgewaehlteIds.add(s.id);
-                      } else {
-                        _ausgewaehlteIds.remove(s.id);
-                      }
-                    });
-                  },
-                )),
           const Divider(height: 40),
           Row(
             children: [

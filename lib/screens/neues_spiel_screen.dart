@@ -73,7 +73,7 @@ class _NeuesSpielScreenState extends State<NeuesSpielScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Neues Spiel')),
+      appBar: AppBar(title: const Text('Neuer Tisch')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -174,14 +174,14 @@ class _NeuesSpielScreenState extends State<NeuesSpielScreen> {
             children: [
               Expanded(
                 child: Text(
-                  'Verfügbare Spiele',
+                  'Verfügbare Spielarten',
                   style: Theme.of(context).textTheme.labelLarge,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               TextButton.icon(
                 icon: const Icon(Icons.tune),
-                label: const Text('Spiele bearbeiten'),
+                label: const Text('Spielarten bearbeiten'),
                 onPressed: () async {
                   await Navigator.of(context).push(
                     MaterialPageRoute(

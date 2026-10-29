@@ -17,9 +17,9 @@ class AktiveSpieleScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Spiel löschen?'),
+        title: const Text('Tisch löschen?'),
         content: const Text(
-            'Dieser Tisch inklusive aller Runden wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.'),
+            'Dieser Tisch inklusive aller Spiele wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
@@ -44,12 +44,12 @@ class AktiveSpieleScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-          title: const Text('Aktive Spiele'),
+          title: const Text('Aktive Tische'),
       ),
       // Der "Neues Spiel"-Button ist jetzt Teil der bottomNavigationBar,
       // daher braucht der Inhalt kein zusätzliches Bottom-Padding mehr.
       body: tische.isEmpty
-          ? const Center(child: Text('Noch kein aktives Spiel'))
+          ? const Center(child: Text('Noch kein aktiver Tisch'))
           : GridView.builder(
               padding: const EdgeInsets.all(12),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

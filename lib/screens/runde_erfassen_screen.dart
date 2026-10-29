@@ -167,7 +167,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
 
     if (spielarten.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Runde erfassen')),
+        appBar: AppBar(title: const Text('Spiel erfassen')),
         body: const Center(
           child: Padding(
             padding: EdgeInsets.all(24),
@@ -184,10 +184,10 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(
           !_istAktiv
-            ? 'Runde Details'
+            ? 'Spiel Details'
             : widget.bearbeiteRunde == null
-              ? 'Runde erfassen'
-              : 'Runde bearbeiten'
+              ? 'Spiel erfassen'
+              : 'Spiel bearbeiten'
         ),
       ),
       body: ListView(
@@ -204,7 +204,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Dieser Tisch ist beendet. Die Runde kann nicht mehr bearbeitet werden.',
+                        'Dieser Tisch ist beendet. Dieses Spiel kann nicht mehr bearbeitet werden.',
                       ),
                     ),
                   ],
@@ -298,7 +298,7 @@ class _RundeErfassenScreenState extends State<RundeErfassenScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                'Kein Gewinner ausgewählt → Runde gilt als unentschieden, es werden keine Punkte verteilt.',
+                'Kein Gewinner ausgewählt → Spiel gilt als unentschieden, es werden keine Punkte verteilt.',
                 style: TextStyle(color: Colors.grey),
               ),
             ),

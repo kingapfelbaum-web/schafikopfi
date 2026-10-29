@@ -53,7 +53,7 @@ class _SpielerDetailScreenState extends State<SpielerDetailScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _kennzahl(context, '${stat.anzahlTische}', 'Tische'),
-                      _kennzahl(context, '${stat.anzahlRunden}', 'Runden'),
+                      _kennzahl(context, '${stat.anzahlRunden}', 'Spiele'),
                       _kennzahl(context,
                           '${(stat.gewinnquote * 100).toStringAsFixed(0)}%',
                           'Gewinnquote'),
@@ -129,13 +129,13 @@ class _SpielerDetailScreenState extends State<SpielerDetailScreen> {
           Text('Nach Spielart', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (stat.proSpielart.isEmpty)
-            const Text('Noch keine Runden gespielt')
+            const Text('Noch keine Spiele gespielt')
           else
             ...stat.proSpielart.map((s) => Card(
                   child: ListTile(
                     title: Text(s.name),
                     subtitle: Text(
-                        '${s.anzahlRunden} Runden · ${(s.gewinnquote * 100).toStringAsFixed(0)}% Gewinnquote'),
+                        '${s.anzahlRunden} Spiele · ${(s.gewinnquote * 100).toStringAsFixed(0)}% Gewinnquote'),
                     trailing: Text(
                       '${s.gesamtPunkte > 0.005 ? '+' : ''}${s.gesamtPunkte.toStringAsFixed(2)} €',
                       style: TextStyle(

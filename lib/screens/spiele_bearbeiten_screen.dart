@@ -10,38 +10,70 @@ class SpieleBearbeitenScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = context.watch<SpielService>();
+    final standardIds = service.standardAusgewaehlteSpielartenIds;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Spiele bearbeiten')),
       body: service.spielarten.isEmpty
           ? const Center(child: Text('Noch keine Spielarten angelegt'))
-          : ListView.builder(
-              padding: EdgeInsets.only(left: 8, right: 8, top: 8, bottom: MediaQuery.of(context).padding.bottom+80),
-              itemCount: service.spielarten.length,
-              itemBuilder: (context, index) {
-                final s = service.spielarten[index];
-                return Card(
-                  child: ListTile(
-                    title: Text(s.name),
-                    subtitle: Text(_untertitel(s)),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () =>
-                              _bearbeitenDialog(context, service, s),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () =>
-                              _loeschenBestaetigen(context, service, s),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+          : ListView(
+        padding: EdgeInsets.only(
+            left: 8,
+            right: 8,
+            top: 8,
+            bottom: MediaQuery.of(context).padding.bottom + 80),
+        children: [
+          Padding(
+            padding:
+            const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Text(
+              'Aktiviere das Häkchen bei Spielarten, die beim Erstellen eines neuen Tisches standardmäßig vorausgewählt sein sollen.',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
+          ),
+          const SizedBox(height: 8),
+          ...service.spielarten.map((s) {
+            final istStandard = standardIds.contains(s.id);
+            return Card(
+              child: ListTile(
+                leading: Tooltip(
+                  message: 'Standardmäßig für neue Tische ausgewählt',
+                  child: Checkbox(
+                    value: istStandard,
+                    onChanged: (checked) {
+                      final neueAuswahl = Set<String>.from(standardIds);
+                      if (checked == true) {
+                        neueAuswahl.add(s.id);
+                      } else {
+                        neueAuswahl.remove(s.id);
+                      }
+                      service.standardAuswahlAendern(neueAuswahl);
+                    },
+                  ),
+                ),
+                title: Text(s.name),
+                subtitle: Text(
+                    _untertitel(s)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () =>
+                          _bearbeitenDialog(context, service, s),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () =>
+                          _loeschenBestaetigen(context, service, s),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('Spielart hinzufügen'),
@@ -52,8 +84,8 @@ class SpieleBearbeitenScreen extends StatelessWidget {
 
   String _untertitel(Spielart s) {
     final tarif = s.einzelspieler
-        ? 'Solo-Tarif (Grundpreis: Solo)'
-        : 'Sauspiel-Tarif (Grundpreis: Sauspiel)';
+        ? 'Solo-Tarif'
+        : 'Sauspiel-Tarif';
     final modus = s.individuelleGewinner
         ? 'individuelle Gewinner, Unentschieden möglich'
         : 'feste Partei (${s.anzahlSpielerpartei} gegen ${4 - s.anzahlSpielerpartei})';
@@ -68,10 +100,24 @@ class SpieleBearbeitenScreen extends StatelessWidget {
     int individuelleAnzahl = bestehende?.individuelleAnzahl ?? 0;
     bool eigeneBetraege = bestehende?.eigeneBetraege ?? false;
     bool hatSpieler = bestehende?.hatSpieler ?? true;
+    bool istStandard = bestehende == null
+        ? true
+        : service.standardAusgewaehlteSpielartenIds.contains(bestehende.id);
+
     final siegController = TextEditingController(
-      text: (bestehende?.siegBetrag ?? (einzelspieler ? standardTarif.sauspielPreis : standardTarif.soloPreis)).toStringAsFixed(2));
+      text: (bestehende?.siegBetrag ??
+          (einzelspieler
+              ? standardTarif.sauspielPreis
+              : standardTarif.soloPreis))
+          .toStringAsFixed(2),
+    );
     final verlustController = TextEditingController(
-      text: (bestehende?.verlustBetrag ?? (einzelspieler ? standardTarif.sauspielPreis : standardTarif.soloPreis)).toStringAsFixed(2));
+      text: (bestehende?.verlustBetrag ??
+          (einzelspieler
+              ? standardTarif.sauspielPreis
+              : standardTarif.soloPreis))
+          .toStringAsFixed(2),
+    );
 
     showDialog(
       context: context,
@@ -89,6 +135,15 @@ class SpieleBearbeitenScreen extends StatelessWidget {
                   controller: nameController,
                   decoration: const InputDecoration(labelText: 'Name'),
                   autofocus: true,
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Standardmäßig ausgewählt'),
+                  subtitle: const Text(
+                      'Beim Erstellen eines neuen Tisches automatisch vorauswählen.'),
+                  value: istStandard,
+                  onChanged: (v) => setState(() => istStandard = v),
                 ),
                 const SizedBox(height: 16),
                 const Text('Grundpreis'),
@@ -154,7 +209,8 @@ class SpieleBearbeitenScreen extends StatelessWidget {
                             controller: siegController,
                             decoration: const InputDecoration(
                                 labelText: 'Betrag bei Sieg (€)'),
-                            keyboardType: const TextInputType.numberWithOptions(
+                            keyboardType:
+                            const TextInputType.numberWithOptions(
                                 decimal: true),
                           ),
                         ),
@@ -164,7 +220,8 @@ class SpieleBearbeitenScreen extends StatelessWidget {
                             controller: verlustController,
                             decoration: const InputDecoration(
                                 labelText: 'Betrag bei Niederlage (€)'),
-                            keyboardType: const TextInputType.numberWithOptions(
+                            keyboardType:
+                            const TextInputType.numberWithOptions(
                                 decimal: true),
                           ),
                         ),
@@ -183,22 +240,46 @@ class SpieleBearbeitenScreen extends StatelessWidget {
               onPressed: () {
                 final name = nameController.text.trim();
                 if (name.isEmpty) return;
+
+                Spielart s;
                 if (bestehende == null) {
                   if (individuelleGewinner) {
-                  service.spielartHinzufuegen(name, einzelspieler,
-                      individuelleGewinner: individuelleGewinner, individuelleAnzahl: individuelleAnzahl, eigeneBetraege: eigeneBetraege, siegBetrag: double.parse(siegController.text), verlustBetrag: double.parse(verlustController.text), hatSpieler: hatSpieler);
+                    s = service.spielartHinzufuegen(name, einzelspieler,
+                        individuelleGewinner: individuelleGewinner,
+                        individuelleAnzahl: individuelleAnzahl,
+                        eigeneBetraege: eigeneBetraege,
+                        siegBetrag: double.parse(siegController.text),
+                        verlustBetrag: double.parse(verlustController.text),
+                        hatSpieler: hatSpieler);
                   } else {
-                    service.spielartHinzufuegen(name, einzelspieler, hatSpieler: hatSpieler);
+                    s = service.spielartHinzufuegen(name, einzelspieler,
+                        hatSpieler: hatSpieler);
                   }
                 } else {
+                  s = bestehende;
                   if (individuelleGewinner) {
-                    service.spielartAktualisieren(
-                        bestehende, name, einzelspieler,
-                        individuelleGewinner: individuelleGewinner, individuelleAnzahl: individuelleAnzahl, eigeneBetraege: eigeneBetraege, siegBetrag: double.parse(siegController.text), verlustBetrag: double.parse(verlustController.text), hatSpieler: hatSpieler);
+                    service.spielartAktualisieren(bestehende, name, einzelspieler,
+                        individuelleGewinner: individuelleGewinner,
+                        individuelleAnzahl: individuelleAnzahl,
+                        eigeneBetraege: eigeneBetraege,
+                        siegBetrag: double.parse(siegController.text),
+                        verlustBetrag: double.parse(verlustController.text),
+                        hatSpieler: hatSpieler);
                   } else {
-                    service.spielartAktualisieren(bestehende, name, einzelspieler, hatSpieler: hatSpieler);
+                    service.spielartAktualisieren(bestehende, name, einzelspieler,
+                        hatSpieler: hatSpieler);
                   }
                 }
+
+                final neueAuswahl = Set<String>.from(
+                    service.standardAusgewaehlteSpielartenIds);
+                if (istStandard) {
+                  neueAuswahl.add(s.id);
+                } else {
+                  neueAuswahl.remove(s.id);
+                }
+                service.standardAuswahlAendern(neueAuswahl);
+
                 Navigator.of(ctx).pop();
               },
               child: const Text('Speichern'),

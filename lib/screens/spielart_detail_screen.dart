@@ -61,7 +61,7 @@ class SpielartDetailScreen extends StatelessWidget {
             : '$spielartName · ${spieler!.name}'),
       ),
       body: eintraege.isEmpty
-          ? const Center(child: Text('Noch keine passenden Runden'))
+          ? const Center(child: Text('Noch keine passenden Spiele'))
           : ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: eintraege.length + 2,
@@ -76,7 +76,7 @@ class SpielartDetailScreen extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _kennzahl(context, '${eintraege.length}', 'Runden'),
+                      _kennzahl(context, '${eintraege.length}', eintraege.length == 1 ? 'Spiel' : 'Spiele'),
                       _kennzahl(
                           context,
                           '${(gewinnquote * 100).toStringAsFixed(0)}%',

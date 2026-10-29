@@ -20,7 +20,7 @@ class StatistikScreen extends StatelessWidget {
           title: const Text('Statistik'),
           bottom: const TabBar(tabs: [
             Tab(text: 'Spieler'),
-            Tab(text: 'Beendete Spiele'),
+            Tab(text: 'Beendete Tische'),
             Tab(text: 'Spielarten'),
           ]),
         ),
@@ -59,7 +59,7 @@ class _SpielerStatistikTab extends StatelessWidget {
             leading: CircleAvatar(child: Text('${index + 1}')),
             title: Text(s.spieler.name),
             subtitle: Text(
-                '${s.anzahlTische} Tische · ${s.anzahlRunden} Runden · '
+                '${s.anzahlTische} Tische · ${s.anzahlRunden} Spiele · '
                 '${(s.gewinnquote * 100).toStringAsFixed(0)}% Gewinnquote'),
             trailing: Text(
               '${s.gesamtPunkte > 0.005 ? '+' : ''}${s.gesamtPunkte.toStringAsFixed(2)} €',
@@ -122,7 +122,7 @@ class _BeendeteSpieleTabState extends State<_BeendeteSpieleTab> {
       builder: (ctx) => AlertDialog(
         title: const Text('Spiel löschen?'),
         content: const Text(
-            'Dieser Tisch inklusive aller Runden wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.'),
+            'Dieser Tisch inklusive aller Spiele wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
@@ -226,7 +226,7 @@ class _SpielartenStatistikTab extends StatelessWidget {
         return Card(
           child: ListTile(
             title: Text(s.name),
-            subtitle: Text('${s.anzahlRunden} Runden'),
+            subtitle: Text('${s.anzahlRunden} Spiele'),
             trailing: Text(
               '${(s.gewinnquote * 100).toStringAsFixed(0)}% Siegquote',
               style: const TextStyle(fontWeight: FontWeight.bold),

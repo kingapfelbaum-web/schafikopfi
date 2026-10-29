@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'spiel_service.dart';
+import '../models/tisch.dart';
 
 /// Info-Objekt für einen auf dem Server vorhandenen, lokal noch NICHT
 /// vorhandenen Tisch (zur Anzeige in der Download-Auswahl).
@@ -15,6 +16,7 @@ class RemoteTischInfo {
   final List<String> spielerNamen;
   final int anzahlRunden;
   final bool istBeendet;
+  final bool istGeaendert;
 
   RemoteTischInfo({
     required this.id,
@@ -22,6 +24,7 @@ class RemoteTischInfo {
     required this.spielerNamen,
     required this.anzahlRunden,
     required this.istBeendet,
+    this.istGeaendert = false,
   });
 }
 
@@ -119,7 +122,7 @@ class SyncService extends ChangeNotifier {
   }
 
   List<RemoteTischInfo> neueRemoteTische(Map<String, dynamic> remoteJson) {
-    final lokaleIds = spielService.alleTische.map((t) => t.id).toSet();
+    final lokaleTischeMap = {for (final t in spielService.alleTische) t.id: t};
     final spielerNamenById = <String, String>{
       for (final p in (remoteJson['allePlayerinnen'] as List? ?? []))
         (p as Map<String, dynamic>)['id'] as String: p['name'] as String,
@@ -129,7 +132,14 @@ class SyncService extends ChangeNotifier {
     for (final t in (remoteJson['tische'] as List? ?? [])) {
       final tischJson = t as Map<String, dynamic>;
       final id = tischJson['id'] as String;
-      if (lokaleIds.contains(id)) continue;
+      final lokalerTisch = lokaleTischeMap[id];
+
+      bool istGeaendert = false;
+      if (lokalerTisch != null) {
+        istGeaendert = _tischUnterscheidetSich(lokalerTisch, tischJson);
+        if (!istGeaendert) continue; // Identischer Stand -> nicht erneut herunterladen
+      }
+
       final spielerIds =
       List<String>.from(tischJson['spielerIds'] as List? ?? []);
       ergebnis.add(RemoteTischInfo(
@@ -141,22 +151,45 @@ class SyncService extends ChangeNotifier {
         spielerIds.map((sid) => spielerNamenById[sid] ?? '?').toList(),
         anzahlRunden: (tischJson['runden'] as List? ?? []).length,
         istBeendet: tischJson['status'] == 'beendet',
+        istGeaendert: istGeaendert,
       ));
     }
     ergebnis.sort((a, b) => b.erstelltAm.compareTo(a.erstelltAm));
     return ergebnis;
   }
 
+  bool _tischUnterscheidetSich(Tisch lokalerTisch, Map<String, dynamic> remoteTischJson) {
+    final remoteRunden = (remoteTischJson['runden'] as List? ?? []);
+    if (lokalerTisch.runden.length != remoteRunden.length) return true;
+
+    final remoteStatus = remoteTischJson['status'] as String?;
+    if (remoteStatus != null) {
+      final bereinigt = remoteStatus.contains('.') ? remoteStatus.split('.').last : remoteStatus;
+      if (bereinigt.toLowerCase() != lokalerTisch.status.name.toLowerCase()) return true;
+    }
+
+    final lokaleRundenIds = lokalerTisch.runden.map((r) => r.id).toSet();
+    for (final r in remoteRunden) {
+      final rJson = r as Map<String, dynamic>;
+      final rId = rJson['id'] as String?;
+      if (rId != null && !lokaleRundenIds.contains(rId)) return true;
+    }
+
+    return false;
+  }
+
   Future<int> herunterladenAusgewaehlt(
       Gruppe gruppe,
       Map<String, dynamic> remoteJson,
       Set<String> tischIds,
-      Map<String, String> entscheidungen,
-      ) async {
+      Map<String, String> entscheidungen, {
+        Map<String, String> tischEntscheidungen = const {},
+      }) async {
     final anzahl = spielService.serverDatenEinspielenAusgewaehlt(
       remoteJson,
       tischIds: tischIds,
       spielerEntscheidungen: entscheidungen,
+      tischEntscheidungen: tischEntscheidungen,
       gruppenName: gruppe.anzeigename,
     );
     letzterSync = DateTime.now();
@@ -164,7 +197,11 @@ class SyncService extends ChangeNotifier {
     return anzahl;
   }
 
-  Future<void> hochladenAusgewaehlt(Gruppe gruppe, Set<String> tischIds) async {
+  Future<void> hochladenAusgewaehlt(
+      Gruppe gruppe,
+      Set<String> tischIds, {
+        Map<String, String> tischEntscheidungen = const {},
+      }) async {
     if (tischIds.isEmpty) return;
     istAmSynchronisieren = true;
     letzterFehler = null;
@@ -183,8 +220,11 @@ class SyncService extends ChangeNotifier {
       as Map<String, dynamic>
           : <String, dynamic>{};
 
-      final zusammengefuehrt =
-      zusammenfuehrenJsonDokumente(bisherigesRemote, teilExport);
+      final zusammengefuehrt = zusammenfuehrenJsonDokumente(
+        bisherigesRemote,
+        teilExport,
+        tischModi: tischEntscheidungen,
+      );
 
       await dokument.set({
         'daten': const JsonEncoder.withIndent('  ').convert(zusammengefuehrt),
