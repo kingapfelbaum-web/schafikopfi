@@ -7,6 +7,7 @@ import 'tisch_detail_screen.dart';
 import '../widgets/verlaufs_chart.dart';
 import '../widgets/zeitraum_auswahl.dart';
 import 'spielart_detail_screen.dart';
+import '../widgets/spieler_rollen_chart.dart';
 
 class SpielerDetailScreen extends StatefulWidget {
   final Spieler spieler;
@@ -81,9 +82,25 @@ class _SpielerDetailScreenState extends State<SpielerDetailScreen> {
           const SizedBox(height: 16),
           Builder(builder: (context) {
             final vollerVerlauf = service.verlaufFuerSpieler(spieler);
-            final verlauf = _zeitraum == null || vollerVerlauf.length <= _zeitraum!
-                ? vollerVerlauf
-                : vollerVerlauf.sublist(vollerVerlauf.length - _zeitraum!);
+            final bool istBeschraenkt =
+                _zeitraum != null && vollerVerlauf.length > _zeitraum!;
+            final List<VerlaufsPunkt> verlauf;
+
+            if (istBeschraenkt) {
+              final cutoff = vollerVerlauf.length - _zeitraum!;
+              final startSaldo = vollerVerlauf[cutoff - 1].kumulierterSaldo;
+              verlauf = vollerVerlauf.sublist(cutoff).map((p) => VerlaufsPunkt(
+                zeitpunkt: p.zeitpunkt,
+                rundenNummer: p.rundenNummer,
+                kumulierterSaldo: p.kumulierterSaldo - startSaldo,
+                kumulierteGewinnquote: p.kumulierteGewinnquote,
+                runde: p.runde,
+              )).toList();
+            } else {
+              verlauf = vollerVerlauf;
+            }
+
+            final endSaldo = verlauf.isNotEmpty ? verlauf.last.kumulierterSaldo : 0.0;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,29 +116,18 @@ class _SpielerDetailScreenState extends State<SpielerDetailScreen> {
                       wertSelector: (p) => p.kumulierterSaldo,
                       formatWert: (w) =>
                       '${w > 0.005 ? '+' : ''}${w.toStringAsFixed(2)} €',
-                      linienFarbe:
-                      stat.gesamtPunkte > 0.005 ? Colors.green : stat.gesamtPunkte < -0.005 ? Colors.red : Theme.of(context).colorScheme.outline,
+                      linienFarbe: endSaldo > 0.005
+                          ? Colors.green
+                          : endSaldo < -0.005
+                          ? Colors.red
+                          : Theme.of(context).colorScheme.outline,
                       nullLinieZeigen: true,
                       symmetrischeSkala: true,
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text('Gewinnquote-Verlauf',
-                    style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: VerlaufsChart(
-                      punkte: verlauf,
-                      wertSelector: (p) => p.kumulierteGewinnquote * 100,
-                      formatWert: (w) => '${w.toStringAsFixed(0)}%',
-                      linienFarbe: Colors.blue,
-                      prozentSkala: true,
-                    ),
-                  ),
-                ),
+                SpielerRollenChart(spieler: spieler, zeitraum: _zeitraum),
               ],
             );
           }),

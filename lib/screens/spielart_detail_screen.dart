@@ -6,6 +6,7 @@ import '../models/runde.dart';
 import '../models/tisch.dart';
 import '../services/spiel_service.dart';
 import 'tisch_detail_screen.dart';
+import '../widgets/spieler_rollen_chart.dart';
 
 class SpielartDetailScreen extends StatelessWidget {
   final String spielartName;
@@ -87,12 +88,20 @@ class SpielartDetailScreen extends StatelessWidget {
                           '${gesamtSaldo >= 0 ? '+' : ''}${gesamtSaldo.toStringAsFixed(2)} €',
                           'Saldo',
                         ),
+                      if (spieler != null) ...[
+                        const SizedBox(height: 12),
+                        SpielerRollenChart(
+                          spieler: spieler!,
+                          festeSpielart: spielartName,
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
             );
           }
+
           if (index == eintraege.length + 1) return Divider(height: MediaQuery.of(context).padding.bottom);
 
           final eintrag = eintraege[index - 1];
