@@ -74,22 +74,26 @@ class SpielartDetailScreen extends StatelessWidget {
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  child: Column(
                     children: [
-                      _kennzahl(context, '${eintraege.length}', eintraege.length == 1 ? 'Spiel' : 'Spiele'),
-                      _kennzahl(
-                          context,
-                          '${(gewinnquote * 100).toStringAsFixed(0)}%',
-                          'Gewinnquote'),
-                      if (spieler != null)
-                        _kennzahl(
-                          context,
-                          '${gesamtSaldo >= 0 ? '+' : ''}${gesamtSaldo.toStringAsFixed(2)} €',
-                          'Saldo',
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _kennzahl(context, '${eintraege.length}', eintraege.length == 1 ? 'Spiel' : 'Spiele'),
+                          _kennzahl(
+                              context,
+                              '${(gewinnquote * 100).toStringAsFixed(0)}%',
+                              'Gewinnquote'),
+                          if (spieler != null)
+                            _kennzahl(
+                              context,
+                              '${gesamtSaldo >= 0 ? '+' : ''}${gesamtSaldo.toStringAsFixed(2)} €',
+                              'Saldo',
+                            ),
+                        ],
+                      ),
                       if (spieler != null) ...[
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         SpielerRollenChart(
                           spieler: spieler!,
                           festeSpielart: spielartName,

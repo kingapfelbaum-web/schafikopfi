@@ -552,6 +552,16 @@ class _SpielerRollenChartState extends State<SpielerRollenChart> {
       maxRunden: widget.zeitraum,
     );
 
+    final relevanteStatsProSpielart = Map.fromEntries(
+      statsProSpielart.entries.where((e) {
+        final stat = e.value;
+        if (stat.anzahlGesamt == 0) return false;
+        // Reine "ohne Spieler"-Spielarten (z. B. Ramsch) ohne Rollen ausschließen
+        final hatRollenSpiele = (stat.anzahlAnsager + stat.anzahlMitspieler + stat.anzahlNichtspieler) > 0;
+        return hatRollenSpiele;
+      }),
+    );
+
     final spielartOptionen = [
       _modusGesamt,
       if (statsProSpielart.length > 1) _modusVergleich,
@@ -572,7 +582,7 @@ class _SpielerRollenChartState extends State<SpielerRollenChart> {
       spieler: widget.spieler,
       maxRunden: widget.zeitraum,
     )
-        : (statsProSpielart[_ausgewaehlterModus] ??
+        : (relevanteStatsProSpielart[_ausgewaehlterModus] ??
         SpielerRollenStatistik.berechne(
           alleTische: alleTische,
           spieler: widget.spieler,
@@ -648,7 +658,7 @@ class _SpielerRollenChartState extends State<SpielerRollenChart> {
               SizedBox(
                 height: 200,
                 child: _VergleichsChartCanvas(
-                  statsMap: statsProSpielart,
+                  statsMap: relevanteStatsProSpielart,
                   farbeAnsager: farbeAnsager,
                   farbeMitspieler: farbeMitspieler,
                   farbeNichtspieler: farbeNichtspieler,
@@ -704,78 +714,94 @@ class _SpielerRollenChartState extends State<SpielerRollenChart> {
               const SizedBox(height: 16),
 
               // KPI-Karten (ebenfalls klickbar)
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _kpiCard(
-                    context,
-                    'Als Ansager',
-                    '${(aktuelleStat.gewinnquoteAnsager * 100).toStringAsFixed(0)}%',
-                    '${aktuelleStat.gewonneneAnsager} / ${aktuelleStat.anzahlAnsager} gew.',
-                    farbeAnsager,
-                    onTap: () => _zeigeSpieleListe(
-                      context,
-                      alleTische,
-                      RollenKategorie.ansager,
-                      'Spiele als Ansager',
-                    ),
-                  ),
-                  if (hatMitspielerSpiele)
+              // KPI-Karten (ebenfalls klickbar)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final kpiCards = [
                     _kpiCard(
                       context,
-                      'Als Mitspieler',
-                      '${(aktuelleStat.gewinnquoteMitspieler * 100).toStringAsFixed(0)}%',
-                      '${aktuelleStat.gewonneneMitspieler} / ${aktuelleStat.anzahlMitspieler} gew.',
-                      farbeMitspieler,
+                      'Als Ansager',
+                      '${(aktuelleStat.gewinnquoteAnsager * 100).toStringAsFixed(0)}%',
+                      '${aktuelleStat.gewonneneAnsager} / ${aktuelleStat.anzahlAnsager} gew.',
+                      farbeAnsager,
                       onTap: () => _zeigeSpieleListe(
                         context,
                         alleTische,
-                        RollenKategorie.mitspieler,
-                        'Spiele als Mitspieler',
+                        RollenKategorie.ansager,
+                        'Spiele als Ansager',
                       ),
                     ),
-                  _kpiCard(
-                    context,
-                    'Als Nichtspieler',
-                    '${(aktuelleStat.gewinnquoteNichtspieler * 100).toStringAsFixed(0)}%',
-                    '${aktuelleStat.gewonneneNichtspieler} / ${aktuelleStat.anzahlNichtspieler} gew.',
-                    farbeNichtspieler,
-                    onTap: () => _zeigeSpieleListe(
-                      context,
-                      alleTische,
-                      RollenKategorie.nichtspieler,
-                      'Spiele als Gegenspieler',
-                    ),
-                  ),
-                  if (hatOhneSpielerSpiele)
+                    if (hatMitspielerSpiele)
+                      _kpiCard(
+                        context,
+                        'Als Mitspieler',
+                        '${(aktuelleStat.gewinnquoteMitspieler * 100).toStringAsFixed(0)}%',
+                        '${aktuelleStat.gewonneneMitspieler} / ${aktuelleStat.anzahlMitspieler} gew.',
+                        farbeMitspieler,
+                        onTap: () => _zeigeSpieleListe(
+                          context,
+                          alleTische,
+                          RollenKategorie.mitspieler,
+                          'Spiele als Mitspieler',
+                        ),
+                      ),
                     _kpiCard(
                       context,
-                      'Ohne Spieler',
-                      '${(aktuelleStat.gewinnquoteOhneSpieler * 100).toStringAsFixed(0)}%',
-                      '${aktuelleStat.gewonneneOhneSpieler} / ${aktuelleStat.anzahlOhneSpieler} gew.',
-                      farbeOhneSpieler,
+                      'Als Nichtspieler',
+                      '${(aktuelleStat.gewinnquoteNichtspieler * 100).toStringAsFixed(0)}%',
+                      '${aktuelleStat.gewonneneNichtspieler} / ${aktuelleStat.anzahlNichtspieler} gew.',
+                      farbeNichtspieler,
                       onTap: () => _zeigeSpieleListe(
                         context,
                         alleTische,
-                        RollenKategorie.ohneSpieler,
-                        'Spiele ohne Spieler',
+                        RollenKategorie.nichtspieler,
+                        'Spiele als Gegenspieler',
                       ),
                     ),
-                  _kpiCard(
-                    context,
-                    'Spielerpartei',
-                    '${(aktuelleStat.spielerparteiAnteil * 100).toStringAsFixed(0)}%',
-                    '${aktuelleStat.anzahlSpielerpartei} / ${aktuelleStat.anzahlGesamt} Spiele',
-                    farbeAnteil,
-                    onTap: () => _zeigeSpieleListe(
+                    if (hatOhneSpielerSpiele)
+                      _kpiCard(
+                        context,
+                        'Ohne Spieler',
+                        '${(aktuelleStat.gewinnquoteOhneSpieler * 100).toStringAsFixed(0)}%',
+                        '${aktuelleStat.gewonneneOhneSpieler} / ${aktuelleStat.anzahlOhneSpieler} gew.',
+                        farbeOhneSpieler,
+                        onTap: () => _zeigeSpieleListe(
+                          context,
+                          alleTische,
+                          RollenKategorie.ohneSpieler,
+                          'Spiele ohne Spieler',
+                        ),
+                      ),
+                    _kpiCard(
                       context,
-                      alleTische,
-                      RollenKategorie.spielerpartei,
-                      'Spiele in der Spielerpartei',
+                      'Spielerpartei',
+                      '${(aktuelleStat.spielerparteiAnteil * 100).toStringAsFixed(0)}%',
+                      '${aktuelleStat.anzahlSpielerpartei} / ${aktuelleStat.anzahlGesamt} Spiele',
+                      farbeAnteil,
+                      onTap: () => _zeigeSpieleListe(
+                        context,
+                        alleTische,
+                        RollenKategorie.spielerpartei,
+                        'Spiele in der Spielerpartei',
+                      ),
                     ),
-                  ),
-                ],
+                  ];
+
+                  const minCardWidth = 110.0;
+                  const spacing = 8.0;
+                  final availableWidth = constraints.maxWidth;
+                  int cols = ((availableWidth + spacing) / (minCardWidth + spacing)).floor();
+                  if (cols < 2) cols = 2; // Auf Phones mindestens 2 Spalten nebeneinander
+                  if (cols > kpiCards.length) cols = kpiCards.length;
+
+                  final cardWidth = (availableWidth - (cols - 1) * spacing) / cols;
+
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: kpiCards.map((card) => SizedBox(width: cardWidth, child: card)).toList(),
+                  );
+                },
               ),
             ],
           ],
@@ -807,12 +833,10 @@ class _SpielerRollenChartState extends State<SpielerRollenChart> {
       Color farbe, {
         VoidCallback? onTap,
       }) {
-    final width = (MediaQuery.of(context).size.width - 72) / 2;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        width: width.clamp(110.0, 160.0),
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
         decoration: BoxDecoration(
           color: farbe.withValues(alpha: 0.12),
@@ -862,6 +886,45 @@ class _SpielerRollenChartState extends State<SpielerRollenChart> {
   }
 }
 
+class _YAchsenPainter extends CustomPainter {
+  final double topOffset;
+  final double bottomOffset;
+  final Color textFarbe;
+
+  _YAchsenPainter({
+    required this.topOffset,
+    required this.bottomOffset,
+    required this.textFarbe,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridHeight = size.height - topOffset - bottomOffset;
+    if (gridHeight <= 0) return;
+
+    final labels = const ['100%', '75%', '50%', '25%', '0%'];
+
+    for (int i = 0; i <= 4; i++) {
+      final y = topOffset + gridHeight * (i / 4.0);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: labels[i],
+          style: TextStyle(fontSize: 10, color: textFarbe),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      tp.paint(canvas, Offset(size.width - tp.width, y - tp.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _YAchsenPainter oldDelegate) =>
+      oldDelegate.topOffset != topOffset ||
+          oldDelegate.bottomOffset != bottomOffset ||
+          oldDelegate.textFarbe != textFarbe;
+}
+
 class _EinzelRollenChartCanvas extends StatelessWidget {
   final SpielerRollenStatistik stat;
   final Color farbeAnsager;
@@ -896,48 +959,54 @@ class _EinzelRollenChartCanvas extends StatelessWidget {
       RollenKategorie.spielerpartei,
     ];
 
+    const topOffset = 16.0;
+    const bottomOffset = 20.0;
+
     return Row(
       children: [
         SizedBox(
           width: 36,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: const [
-              Text('100%', style: TextStyle(fontSize: 10)),
-              Text('75%', style: TextStyle(fontSize: 10)),
-              Text('50%', style: TextStyle(fontSize: 10)),
-              Text('25%', style: TextStyle(fontSize: 10)),
-              Text('0%', style: TextStyle(fontSize: 10)),
-            ],
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: _YAchsenPainter(
+              topOffset: topOffset,
+              bottomOffset: bottomOffset,
+              textFarbe: textFarbe,
+            ),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapUp: (details) {
-              final box = context.findRenderObject() as RenderBox?;
-              if (box == null) return;
-              final width = box.size.width - 44;
-              if (width <= 0) return;
-              final x = (details.localPosition.dx - 44).clamp(0.0, width);
-              final index = (x / (width / kategorien.length)).floor().clamp(0, kategorien.length - 1);
-              onBarTap(kategorien[index]);
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: (details) {
+                  if (width <= 0) return;
+                  final x = details.localPosition.dx.clamp(0.0, width);
+                  final index = (x / (width / kategorien.length))
+                      .floor()
+                      .clamp(0, kategorien.length - 1);
+                  onBarTap(kategorien[index]);
+                },
+                child: CustomPaint(
+                  size: Size.infinite,
+                  painter: _EinzelChartPainter(
+                    stat: stat,
+                    topOffset: topOffset,
+                    bottomOffset: bottomOffset,
+                    farbeAnsager: farbeAnsager,
+                    farbeMitspieler: farbeMitspieler,
+                    farbeNichtspieler: farbeNichtspieler,
+                    farbeOhneSpieler: farbeOhneSpieler,
+                    farbeAnteil: farbeAnteil,
+                    gitterFarbe: gitterFarbe,
+                    textFarbe: textFarbe,
+                  ),
+                ),
+              );
             },
-            child: CustomPaint(
-              size: Size.infinite,
-              painter: _EinzelChartPainter(
-                stat: stat,
-                farbeAnsager: farbeAnsager,
-                farbeMitspieler: farbeMitspieler,
-                farbeNichtspieler: farbeNichtspieler,
-                farbeOhneSpieler: farbeOhneSpieler,
-                farbeAnteil: farbeAnteil,
-                gitterFarbe: gitterFarbe,
-                textFarbe: textFarbe,
-              ),
-            ),
           ),
         ),
       ],
@@ -947,6 +1016,8 @@ class _EinzelRollenChartCanvas extends StatelessWidget {
 
 class _EinzelChartPainter extends CustomPainter {
   final SpielerRollenStatistik stat;
+  final double topOffset;
+  final double bottomOffset;
   final Color farbeAnsager;
   final Color farbeMitspieler;
   final Color farbeNichtspieler;
@@ -957,6 +1028,8 @@ class _EinzelChartPainter extends CustomPainter {
 
   _EinzelChartPainter({
     required this.stat,
+    required this.topOffset,
+    required this.bottomOffset,
     required this.farbeAnsager,
     required this.farbeMitspieler,
     required this.farbeNichtspieler,
@@ -968,21 +1041,22 @@ class _EinzelChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final chartHeight = size.height - 24;
+    final gridHeight = size.height - topOffset - bottomOffset;
+    if (gridHeight <= 0) return;
     final chartWidth = size.width;
+    final bottomY = size.height - bottomOffset;
 
     final gridPaint = Paint()
       ..color = gitterFarbe
       ..strokeWidth = 1.0;
 
     for (int i = 0; i <= 4; i++) {
-      final y = chartHeight * (i / 4);
+      final y = topOffset + gridHeight * (i / 4.0);
       canvas.drawLine(Offset(0, y), Offset(chartWidth, y), gridPaint);
     }
 
     final zeigeMitspieler = stat.anzahlMitspieler > 0;
     final zeigeOhneSpieler = stat.anzahlOhneSpieler > 0;
-
 
     final saeulen = [
       _SaeulenData(
@@ -1023,12 +1097,12 @@ class _EinzelChartPainter extends CustomPainter {
       final centerX = slotWidth * i + slotWidth / 2;
       final left = centerX - saeuleWidth / 2;
 
-      final valHeight = chartHeight * data.wert.clamp(0.0, 1.0);
-      final top = chartHeight - valHeight;
+      final valHeight = gridHeight * data.wert.clamp(0.0, 1.0);
+      final top = bottomY - valHeight;
 
       if (data.hatSpiele && valHeight > 0) {
         final barPaint = Paint()..color = data.farbe;
-        final rect = Rect.fromLTRB(left, top, left + saeuleWidth, chartHeight);
+        final rect = Rect.fromLTRB(left, top, left + saeuleWidth, bottomY);
         final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
         canvas.drawRRect(rrect, barPaint);
       }
@@ -1050,7 +1124,10 @@ class _EinzelChartPainter extends CustomPainter {
 
       tpVal.paint(
         canvas,
-        Offset(centerX - tpVal.width / 2, (top - tpVal.height - 2).clamp(0.0, chartHeight - 14)),
+        Offset(
+          centerX - tpVal.width / 2,
+          (top - tpVal.height - 2).clamp(0.0, bottomY - 14.0),
+        ),
       );
     }
   }
@@ -1097,20 +1174,20 @@ class _VergleichsChartCanvas extends StatelessWidget {
 
     final statsList = statsMap.values.toList();
 
+    const topOffset = 16.0;
+    const bottomOffset = 24.0;
+
     return Row(
       children: [
-        const SizedBox(
+        SizedBox(
           width: 36,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('100%', style: TextStyle(fontSize: 10)),
-              Text('75%', style: TextStyle(fontSize: 10)),
-              Text('50%', style: TextStyle(fontSize: 10)),
-              Text('25%', style: TextStyle(fontSize: 10)),
-              Text('0%', style: TextStyle(fontSize: 10)),
-            ],
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: _YAchsenPainter(
+              topOffset: topOffset,
+              bottomOffset: bottomOffset,
+              textFarbe: textFarbe,
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -1150,6 +1227,8 @@ class _VergleichsChartCanvas extends StatelessWidget {
                       size: Size.infinite,
                       painter: _VergleichsChartPainter(
                         statsList: statsList,
+                        topOffset: topOffset,
+                        bottomOffset: bottomOffset,
                         farbeAnsager: farbeAnsager,
                         farbeMitspieler: farbeMitspieler,
                         farbeNichtspieler: farbeNichtspieler,
@@ -1172,6 +1251,8 @@ class _VergleichsChartCanvas extends StatelessWidget {
 
 class _VergleichsChartPainter extends CustomPainter {
   final List<SpielerRollenStatistik> statsList;
+  final double topOffset;
+  final double bottomOffset;
   final Color farbeAnsager;
   final Color farbeMitspieler;
   final Color farbeNichtspieler;
@@ -1182,6 +1263,8 @@ class _VergleichsChartPainter extends CustomPainter {
 
   _VergleichsChartPainter({
     required this.statsList,
+    required this.topOffset,
+    required this.bottomOffset,
     required this.farbeAnsager,
     required this.farbeMitspieler,
     required this.farbeNichtspieler,
@@ -1193,15 +1276,17 @@ class _VergleichsChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final chartHeight = size.height - 24;
+    final gridHeight = size.height - topOffset - bottomOffset;
+    if (gridHeight <= 0) return;
     final chartWidth = size.width;
+    final bottomY = size.height - bottomOffset;
 
     final gridPaint = Paint()
       ..color = gitterFarbe
       ..strokeWidth = 1.0;
 
     for (int i = 0; i <= 4; i++) {
-      final y = chartHeight * (i / 4);
+      final y = topOffset + gridHeight * (i / 4.0);
       canvas.drawLine(Offset(0, y), Offset(chartWidth, y), gridPaint);
     }
 
@@ -1231,12 +1316,12 @@ class _VergleichsChartPainter extends CustomPainter {
       for (int j = 0; j < values.length; j++) {
         final barData = values[j];
         final left = startX + j * (barWidth + 2.5);
-        final valHeight = chartHeight * barData.wert.clamp(0.0, 1.0);
-        final top = chartHeight - valHeight;
+        final valHeight = gridHeight * barData.wert.clamp(0.0, 1.0);
+        final top = bottomY - valHeight;
 
         if (barData.hatSpiele && valHeight > 0) {
           final paint = Paint()..color = barData.farbe;
-          final rect = Rect.fromLTRB(left, top, left + barWidth, chartHeight);
+          final rect = Rect.fromLTRB(left, top, left + barWidth, bottomY);
           final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(3));
           canvas.drawRRect(rrect, paint);
         }
@@ -1254,7 +1339,7 @@ class _VergleichsChartPainter extends CustomPainter {
 
       tpLabel.paint(
         canvas,
-        Offset(groupCenterX - tpLabel.width / 2, chartHeight + 6),
+        Offset(groupCenterX - tpLabel.width / 2, bottomY + 6),
       );
     }
   }
